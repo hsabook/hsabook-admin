@@ -1,5 +1,5 @@
 curl -X 'POST' \
-  'https://hsa-education-backend-dev.up.railway.app/books/d70c97de-26d6-4668-9455-dbbfd4cd0266/publish' \
+  'https://hsabook-backend-dev.up.railway.app/books/d70c97de-26d6-4668-9455-dbbfd4cd0266/publish' \
   -H 'accept: */*' \
   -H 'Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI4NDcyY2FhYi1mYWQ5LTQwMzgtYTA3Ni02ZGUwNDUyZTgyNjMiLCJpYXQiOjE3Mzg4NzA1OTIsImV4cCI6MTczOTQ3NTM5Mn0.A8bigMs43wBTp-IEeHe0lBMYZQsS4I9MjIIXHFSsjw0' \
   -H 'Content-Type: application/json' \
@@ -24,7 +24,7 @@ curl -X 'POST' \
 
 
 curl -X 'GET' \
-  'https://hsa-education-backend-dev.up.railway.app/books/d70c97de-26d6-4668-9455-dbbfd4cd0266/history-publish' \
+  'https://hsabook-backend-dev.up.railway.app/books/d70c97de-26d6-4668-9455-dbbfd4cd0266/history-publish' \
   -H 'accept: */*' \
   -H 'Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI4NDcyY2FhYi1mYWQ5LTQwMzgtYTA3Ni02ZGUwNDUyZTgyNjMiLCJpYXQiOjE3Mzg4NzA1OTIsImV4cCI6MTczOTQ3NTM5Mn0.A8bigMs43wBTp-IEeHe0lBMYZQsS4I9MjIIXHFSsjw0'
 

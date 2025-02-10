@@ -6,7 +6,7 @@ module.exports = {
     env: {
       NODE_ENV: "development",
       PORT: 4173,
-      VITE_API_ENDPOINT: "https://hsa-education-backend-dev.up.railway.app/"
+      VITE_API_ENDPOINT: "https://hsabook-backend-dev.up.railway.app/"
     }
   }]
 }
