@@ -1,0 +1,82 @@
+.ant-menu {
+  font-size: 15px !important;
+}
+
+.ant-menu-item, 
+.ant-menu-submenu-title {
+  height: 50px !important;
+  line-height: 50px !important;
+  padding-left: 24px !important;
+}
+
+.ant-menu-item .anticon,
+.ant-menu-submenu-title .anticon {
+  font-size: 20px !important;
+  margin-right: 16px !important;
+}
+
+.ant-menu-sub.ant-menu-inline > .ant-menu-item {
+  padding-left: 64px !important;
+  height: 45px !important;
+  line-height: 45px !important;
+}
+
+/* Top level menu item styles */
+.ant-menu-item-selected {
+  background-color: #45b630 !important;
+  color: white !important;
+}
+
+/* Remove hover color change for selected items */
+.ant-menu-item-selected:hover {
+  color: white !important;
+  background-color: #45b630 !important;
+}
+
+/* Normal hover state for non-selected items */
+.ant-menu-item:not(.ant-menu-item-selected):hover {
+  color: inherit !important;
+  background-color: rgba(69, 182, 48, 0.1) !important;
+}
+
+/* Submenu styles */
+.ant-menu-submenu-title:hover {
+  color: #45b630 !important;
+}
+
+.ant-menu-submenu-selected > .ant-menu-submenu-title {
+  color: #45b630 !important;
+}
+
+/* Submenu item styles */
+.ant-menu-sub .ant-menu-item-selected {
+  background-color: #45b630 !important;
+  color: white !important;
+}
+
+.ant-menu-sub .ant-menu-item:not(.ant-menu-item-selected):hover {
+  color: inherit !important;
+  background-color: rgba(69, 182, 48, 0.1) !important;
+}
+
+.ant-menu-submenu-arrow {
+  font-size: 12px !important;
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: #f1f1f1;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #888;
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #555;
+}

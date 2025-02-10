@@ -1,0 +1,71 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Ant Design Custom Styles */
+.ant-layout {
+  min-height: 100vh;
+}
+
+.ant-layout-sider {
+  background: white !important;
+  border-right: 1px solid #f0f0f0;
+}
+
+.ant-menu-item-selected {
+  background-color: #45b630 !important;
+  color: white !important;
+}
+
+.ant-menu-item:hover {
+  color: #45b630 !important;
+}
+
+.ant-menu-item-selected:hover {
+  color: white !important;
+}
+
+.ant-menu-submenu-selected > .ant-menu-submenu-title {
+  color: #45b630 !important;
+}
+
+.ant-layout-sider-trigger {
+  background: #45b630 !important;
+}
+
+/* Table striped rows */
+.ant-table-striped .ant-table-tbody > tr:nth-child(odd) {
+  background-color: #f8f9fa;
+}
+
+.ant-table-striped .ant-table-tbody > tr:hover > td {
+  background-color: #f0f7ff !important;
+}
+
+/* Modal styles */
+.ant-modal-wrap {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+.ant-modal-wrap::-webkit-scrollbar {
+  display: none;
+}
+
+/* Add custom scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: #f1f1f1;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #888;
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #555;
+}
