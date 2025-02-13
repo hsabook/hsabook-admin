@@ -1,9 +1,10 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Table, Tag, Space, Button, Dropdown, Tooltip, message, Switch, Image } from 'antd';
-import { MoreOutlined, PrinterOutlined, EditOutlined, DeleteOutlined, CopyOutlined, EyeOutlined, MenuOutlined } from '@ant-design/icons';
+import { MoreOutlined, PrinterOutlined, EditOutlined, DeleteOutlined, CopyOutlined, EyeOutlined, MenuOutlined, UploadOutlined } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
 import type { ColumnsType } from 'antd/es/table';
 import type { Book } from '../../../api/books/types';
+import BookUploadModal from './BookUploadModal';
 
 interface BookTableProps {
   data: Book[];
@@ -23,6 +24,8 @@ const BookTable: React.FC<BookTableProps> = ({
   onViewOverview
 }) => {
   const navigate = useNavigate();
+  const [selectedBook, setSelectedBook] = useState<Book | null>(null);
+  const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
 
   const handleCopyId = (id: number) => {
     navigator.clipboard.writeText(id.toString())
@@ -46,7 +49,6 @@ const BookTable: React.FC<BookTableProps> = ({
       label: 'Menu sách',
       icon: <MenuOutlined />,
       onClick: () => {
-        console.log('menu record.id', record.id);
         navigate(`/books/${record.id}/menu`);
       },
     },
@@ -55,6 +57,15 @@ const BookTable: React.FC<BookTableProps> = ({
       label: 'In',
       icon: <PrinterOutlined />,
       onClick: () => onPrint(record),
+    },
+    {
+      key: 'upload',
+      label: 'Upload sách ID',
+      icon: <UploadOutlined />,
+      onClick: () => {
+        setSelectedBook(record);
+        setIsUploadModalOpen(true);
+      },
     },
     {
       key: 'edit',
@@ -257,6 +268,17 @@ const BookTable: React.FC<BookTableProps> = ({
         }}
         className="ant-table-striped"
       />
+
+      {selectedBook && (
+        <BookUploadModal
+          book={selectedBook}
+          open={isUploadModalOpen}
+          onClose={() => {
+            setIsUploadModalOpen(false);
+            setSelectedBook(null);
+          }}
+        />
+      )}
     </div>
   );
 };
