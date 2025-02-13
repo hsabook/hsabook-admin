@@ -138,27 +138,6 @@ const BookUploadModal: React.FC<BookUploadModalProps> = ({
     }
   };
 
-  const handleDownload = async (url: string) => {
-    try {
-      const response = await fetch(url);
-      const blob = await response.blob();
-      const fileExtension = url.split('.').pop() || 'docx';
-      const fileName = `${book.name} [Chứa CODE ID].${fileExtension}`;
-
-      // Create a temporary link element
-      const link = document.createElement('a');
-      link.href = window.URL.createObjectURL(blob);
-      link.download = fileName;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      window.URL.revokeObjectURL(link.href);
-    } catch (error) {
-      console.error('Error downloading file:', error);
-      message.error('Không thể tải xuống file');
-    }
-  };
-
   const formatFileSize = (bytes: number): string => {
     if (bytes === 0) return '0 Bytes';
     const k = 1024;
@@ -208,7 +187,7 @@ const BookUploadModal: React.FC<BookUploadModalProps> = ({
               <Button
                 type="primary"
                 icon={<DownloadOutlined />}
-                onClick={() => handleDownload(uploadStatus.file_code_id_url)}
+                onClick={() => window.open(uploadStatus.file_code_id_url)}
                 className="bg-[#45b630]"
               >
                 Tải xuống
