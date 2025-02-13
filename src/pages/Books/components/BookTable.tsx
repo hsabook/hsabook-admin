@@ -40,35 +40,22 @@ const BookTable: React.FC<BookTableProps> = ({
   const getActionItems = (record: any) => {
     const items = [
       {
-        key: 'overview',
-        label: 'Xem tổng quan',
-        icon: <EyeOutlined />,
-        onClick: () => onViewOverview(record),
-      },
-      {
-        key: 'menu',
-        label: 'Menu sách',
-        icon: <MenuOutlined />,
-        onClick: () => navigate(`/books/${record.id}/menu`),
-      },
-      {
-        key: 'edit',
-        label: 'Chỉnh sửa',
-        icon: <EditOutlined />,
-        onClick: () => onEdit(record),
-      },
-    ]
-    if (record?.active) {
-      items.push({
         key: 'print',
-        label: 'In',
+        label: 'Lấy mã ID sách để in vào bìa',
         icon: <PrinterOutlined />,
         onClick: () => {
           setSelectedBook(record);
           setIsPrintDrawerOpen(true);
         },
-      })
-    } else {
+      },
+      {
+        key: 'overview',
+        label: 'Xem tổng quan',
+        icon: <EyeOutlined />,
+        onClick: () => onViewOverview(record),
+      },
+    ]
+    if (!record?.active) {
       items.push({
         key: 'upload',
         label: 'Upload sách ID',
@@ -78,16 +65,21 @@ const BookTable: React.FC<BookTableProps> = ({
           setIsUploadModalOpen(true);
         },
       })
-      items.push({
-        key: 'print',
-        label: 'In',
-        icon: <PrinterOutlined />,
-        onClick: () => {
-          setSelectedBook(record);
-          setIsPrintDrawerOpen(true);
-        },
-      })
     }
+    
+    items.push({
+      key: 'menu',
+      label: 'Menu sách',
+      icon: <MenuOutlined />,
+      onClick: () => navigate(`/books/${record.id}/menu`),
+    })
+    items.push({
+      key: 'edit',
+      label: 'Chỉnh sửa',
+      icon: <EditOutlined />,
+      onClick: () => onEdit(record),
+    })
+    
     items.push({
       key: 'delete',
       label: 'Xóa',
