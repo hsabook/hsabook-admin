@@ -78,6 +78,15 @@ const BookTable: React.FC<BookTableProps> = ({
           setIsUploadModalOpen(true);
         },
       })
+      items.push({
+        key: 'print',
+        label: 'In',
+        icon: <PrinterOutlined />,
+        onClick: () => {
+          setSelectedBook(record);
+          setIsPrintDrawerOpen(true);
+        },
+      })
     }
     items.push({
       key: 'delete',
