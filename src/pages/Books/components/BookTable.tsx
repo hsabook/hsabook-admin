@@ -97,6 +97,7 @@ const BookTable: React.FC<BookTableProps> = ({
       dataIndex: 'avatar',
       key: 'avatar',
       width: 100,
+      align: 'center',
       render: (avatar, record) => (
         avatar ? (
           <div className="w-[60px] h-[80px]">
@@ -123,6 +124,7 @@ const BookTable: React.FC<BookTableProps> = ({
       title: 'Tên sách',
       dataIndex: 'name',
       key: 'name',
+      align: 'center',
       render: (text) => <span className="font-medium">{text}</span>,
     },
     {
@@ -130,6 +132,7 @@ const BookTable: React.FC<BookTableProps> = ({
       dataIndex: 'code_id',
       key: 'code_id',
       width: 150,
+      align: 'center',
       render: (id) => (
         <div className="flex items-center gap-2">
           <span>{id}</span>
@@ -147,6 +150,7 @@ const BookTable: React.FC<BookTableProps> = ({
       dataIndex: 'active',
       key: 'active',
       width: 120,
+      align: 'center',
       render: (active) => (
         <Tag color={active ? 'success' : 'error'} className="rounded-full">
           {active ? 'Đã kích hoạt' : 'Chưa kích hoạt'}
@@ -158,6 +162,7 @@ const BookTable: React.FC<BookTableProps> = ({
       dataIndex: 'is_public',
       key: 'is_public',
       width: 100,
+      align: 'center',
       render: (isPublic) => (
         <Switch
           checked={isPublic}
@@ -171,12 +176,14 @@ const BookTable: React.FC<BookTableProps> = ({
       dataIndex: 'publishing_house',
       key: 'publishing_house',
       width: 150,
+      align: 'center',
       render: (text) => text || '-',
     },
     {
       title: 'Danh mục',
       key: 'categories',
       width: 200,
+      align: 'center',
       render: (_, record) => {
         const tags = record.book_tags;
         if (tags.length === 0) return '-';
@@ -215,6 +222,7 @@ const BookTable: React.FC<BookTableProps> = ({
       title: 'Tác giả',
       key: 'authors',
       width: 200,
+      align: 'center',
       render: (_, record) => (
         <Space wrap>
           {record.authors.map((author) => (
@@ -230,7 +238,7 @@ const BookTable: React.FC<BookTableProps> = ({
       dataIndex: 'quantity',
       key: 'quantity',
       width: 100,
-      align: 'right',
+      align: 'center',
       render: (quantity) => quantity || 0,
     },
     {
@@ -238,6 +246,7 @@ const BookTable: React.FC<BookTableProps> = ({
       dataIndex: 'updated_at',
       key: 'updated_at',
       width: 150,
+      align: 'center',
       render: (date) => new Date(date).toLocaleString(),
     },
     {
@@ -245,6 +254,7 @@ const BookTable: React.FC<BookTableProps> = ({
       key: 'actions',
       fixed: 'right',
       width: 50,
+      align: 'center',
       render: (_, record) => (
         <Dropdown
           menu={{ items: getActionItems(record) }}
