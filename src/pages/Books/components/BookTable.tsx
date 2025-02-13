@@ -40,6 +40,24 @@ const BookTable: React.FC<BookTableProps> = ({
   const getActionItems = (record: any) => {
     const items = [
       {
+        key: 'overview',
+        label: 'Xem tổng quan',
+        icon: <EyeOutlined />,
+        onClick: () => onViewOverview(record),
+      },
+      {
+        key: 'upload',
+        label: 'Upload sách để lấy bản thảo chứa ID',
+        icon: <UploadOutlined />,
+        onClick: () => {
+          setSelectedBook(record);
+          setIsUploadModalOpen(true);
+        },
+      }
+    ]
+
+    if(record?.status_add_code_id !== 'success') {
+      items.push({
         key: 'print',
         label: 'Lấy mã ID sách để in vào bìa',
         icon: <PrinterOutlined />,
@@ -47,26 +65,9 @@ const BookTable: React.FC<BookTableProps> = ({
           setSelectedBook(record);
           setIsPrintDrawerOpen(true);
         },
-      },
-      {
-        key: 'overview',
-        label: 'Xem tổng quan',
-        icon: <EyeOutlined />,
-        onClick: () => onViewOverview(record),
-      },
-    ]
-    if (!record?.active) {
-      items.push({
-        key: 'upload',
-        label: 'Upload sách ID',
-        icon: <UploadOutlined />,
-        onClick: () => {
-          setSelectedBook(record);
-          setIsUploadModalOpen(true);
-        },
       })
     }
-    
+
     items.push({
       key: 'menu',
       label: 'Menu sách',
@@ -87,7 +88,7 @@ const BookTable: React.FC<BookTableProps> = ({
       danger: true,
       onClick: () => onDelete(record),
     } as any)
-    return items;
+    return items.sort((a, b) => b.label.length - a.label.length);
   };
 
   const columns: ColumnsType<Book> = [
