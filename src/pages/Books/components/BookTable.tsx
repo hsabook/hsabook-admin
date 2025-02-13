@@ -37,51 +37,57 @@ const BookTable: React.FC<BookTableProps> = ({
       });
   };
 
-  const getActionItems = (record: Book) => [
-    {
-      key: 'overview',
-      label: 'Xem tổng quan',
-      icon: <EyeOutlined />,
-      onClick: () => onViewOverview(record),
-    },
-    {
-      key: 'menu',
-      label: 'Menu sách',
-      icon: <MenuOutlined />,
-      onClick: () => navigate(`/books/${record.id}/menu`),
-    },
-    {
-      key: 'print',
-      label: 'In',
-      icon: <PrinterOutlined />,
-      onClick: () => {
-        setSelectedBook(record);
-        setIsPrintDrawerOpen(true);
+  const getActionItems = (record: any) => {
+    const items = [
+      {
+        key: 'overview',
+        label: 'Xem tổng quan',
+        icon: <EyeOutlined />,
+        onClick: () => onViewOverview(record),
       },
-    },
-    {
-      key: 'upload',
-      label: 'Upload sách ID',
-      icon: <UploadOutlined />,
-      onClick: () => {
-        setSelectedBook(record);
-        setIsUploadModalOpen(true);
+      {
+        key: 'menu',
+        label: 'Menu sách',
+        icon: <MenuOutlined />,
+        onClick: () => navigate(`/books/${record.id}/menu`),
       },
-    },
-    {
-      key: 'edit',
-      label: 'Chỉnh sửa',
-      icon: <EditOutlined />,
-      onClick: () => onEdit(record),
-    },
-    {
+      {
+        key: 'edit',
+        label: 'Chỉnh sửa',
+        icon: <EditOutlined />,
+        onClick: () => onEdit(record),
+      },
+    ]
+    if (record?.active) {
+      items.push({
+        key: 'print',
+        label: 'In',
+        icon: <PrinterOutlined />,
+        onClick: () => {
+          setSelectedBook(record);
+          setIsPrintDrawerOpen(true);
+        },
+      })
+    } else {
+      items.push({
+        key: 'upload',
+        label: 'Upload sách ID',
+        icon: <UploadOutlined />,
+        onClick: () => {
+          setSelectedBook(record);
+          setIsUploadModalOpen(true);
+        },
+      })
+    }
+    items.push({
       key: 'delete',
       label: 'Xóa',
       icon: <DeleteOutlined />,
       danger: true,
       onClick: () => onDelete(record),
-    },
-  ];
+    } as any)
+    return items;
+  };
 
   const columns: ColumnsType<Book> = [
     {
