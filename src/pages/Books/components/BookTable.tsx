@@ -5,12 +5,12 @@ import { useNavigate } from 'react-router-dom';
 import type { ColumnsType } from 'antd/es/table';
 import type { Book } from '../../../api/books/types';
 import BookUploadModal from './BookUploadModal';
+import BookPrintDrawer from './BookPrintDrawer/BookPrintDrawer';
 
 interface BookTableProps {
   data: Book[];
   loading?: boolean;
   onEdit: (book: Book) => void;
-  onPrint: (book: Book) => void;
   onDelete: (book: Book) => void;
   onViewOverview: (book: Book) => void;
 }
@@ -19,13 +19,13 @@ const BookTable: React.FC<BookTableProps> = ({
   data,
   loading,
   onEdit,
-  onPrint,
   onDelete,
   onViewOverview
 }) => {
   const navigate = useNavigate();
   const [selectedBook, setSelectedBook] = useState<Book | null>(null);
   const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
+  const [isPrintDrawerOpen, setIsPrintDrawerOpen] = useState(false);
 
   const handleCopyId = (id: number) => {
     navigator.clipboard.writeText(id.toString())
@@ -48,15 +48,16 @@ const BookTable: React.FC<BookTableProps> = ({
       key: 'menu',
       label: 'Menu sách',
       icon: <MenuOutlined />,
-      onClick: () => {
-        navigate(`/books/${record.id}/menu`);
-      },
+      onClick: () => navigate(`/books/${record.id}/menu`),
     },
     {
       key: 'print',
       label: 'In',
       icon: <PrinterOutlined />,
-      onClick: () => onPrint(record),
+      onClick: () => {
+        setSelectedBook(record);
+        setIsPrintDrawerOpen(true);
+      },
     },
     {
       key: 'upload',
@@ -270,14 +271,25 @@ const BookTable: React.FC<BookTableProps> = ({
       />
 
       {selectedBook && (
-        <BookUploadModal
-          book={selectedBook}
-          open={isUploadModalOpen}
-          onClose={() => {
-            setIsUploadModalOpen(false);
-            setSelectedBook(null);
-          }}
-        />
+        <>
+          <BookUploadModal
+            book={selectedBook}
+            open={isUploadModalOpen}
+            onClose={() => {
+              setIsUploadModalOpen(false);
+              setSelectedBook(null);
+            }}
+          />
+
+          <BookPrintDrawer
+            book={selectedBook}
+            open={isPrintDrawerOpen}
+            onClose={() => {
+              setIsPrintDrawerOpen(false);
+              setSelectedBook(null);
+            }}
+          />
+        </>
       )}
     </div>
   );
