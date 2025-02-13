@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Modal, Upload, Button, message } from 'antd';
-import { InboxOutlined } from '@ant-design/icons';
-import type { UploadFile } from 'antd/es/upload/interface';
+import { InboxOutlined, FileWordOutlined } from '@ant-design/icons';
+import type { UploadFile, UploadProps } from 'antd/es/upload/interface';
 import type { Book } from '../../../api/books/types';
 import CONFIG_APP from '../../../utils/config';
 import { useAuthStore } from '../../../store/authStore';
@@ -24,21 +24,32 @@ const BookUploadModal: React.FC<BookUploadModalProps> = ({
   const { accessToken } = useAuthStore();
 
   const handleBeforeUpload = (file: File) => {
-    // Only accept .docx files
     const isDocx = file.type === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
     if (!isDocx) {
       message.error('Chỉ chấp nhận file DOCX');
       return Upload.LIST_IGNORE;
     }
 
-    // Check file size (max 1GB)
     const maxSize = 1024 * 1024 * 1024; // 1GB in bytes
     if (file.size > maxSize) {
       message.error('Kích thước file không được vượt quá 1GB');
       return Upload.LIST_IGNORE;
     }
 
+    if (fileList.length >= 1) {
+      message.error('Chỉ được tải lên 1 file duy nhất');
+      return Upload.LIST_IGNORE;
+    }
+
     return true;
+  };
+
+  const handleChange: UploadProps['onChange'] = ({ fileList: newFileList }) => {
+    if (newFileList.length > 1) {
+      message.error('Chỉ được tải lên 1 file duy nhất');
+      return;
+    }
+    setFileList(newFileList);
   };
 
   const handleUpload = async () => {
@@ -86,7 +97,6 @@ const BookUploadModal: React.FC<BookUploadModalProps> = ({
     }
   };
 
-  // Helper function to format file size
   const formatFileSize = (bytes: number): string => {
     if (bytes === 0) return '0 Bytes';
     const k = 1024;
@@ -109,6 +119,7 @@ const BookUploadModal: React.FC<BookUploadModalProps> = ({
           type="primary"
           onClick={handleUpload}
           loading={uploading}
+          disabled={fileList.length === 0}
           className="bg-[#45b630]"
         >
           {uploading ? 'Đang tải lên...' : 'Tải lên'}
@@ -116,45 +127,50 @@ const BookUploadModal: React.FC<BookUploadModalProps> = ({
       ]}
     >
       <div className="py-4">
-        <Dragger
-          accept=".docx"
-          maxCount={1}
-          fileList={fileList}
-          beforeUpload={handleBeforeUpload}
-          onChange={({ fileList }) => setFileList(fileList)}
-          onRemove={() => setFileList([])}
-          disabled={uploading}
-          customRequest={({ onSuccess }) => {
-            setTimeout(() => {
-              onSuccess?.('ok');
-            }, 0);
-          }}
-          showUploadList={{
-            showDownloadIcon: false,
-            showRemoveIcon: true,
-            removeIcon: <Button type="text" size="small" danger>Xóa</Button>
-          }}
-        >
-          <p className="ant-upload-drag-icon">
-            <InboxOutlined className="text-4xl text-[#45b630]" />
-          </p>
-          <p className="ant-upload-text font-medium">
-            Kéo thả file vào đây hoặc click để chọn file
-          </p>
-          <p className="ant-upload-hint text-gray-500">
-            Chỉ hỗ trợ file DOCX. Kích thước tối đa 1GB.
-          </p>
-        </Dragger>
-
-        {fileList.length > 0 && (
-          <div className="mt-4 p-4 bg-gray-50 rounded-lg">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="font-medium">{fileList[0].name}</p>
-                <p className="text-sm text-gray-500">
+        {fileList.length === 0 ? (
+          <Dragger
+            accept=".docx"
+            maxCount={1}
+            multiple={false}
+            fileList={fileList}
+            beforeUpload={handleBeforeUpload}
+            onChange={handleChange}
+            disabled={uploading}
+            customRequest={({ onSuccess }) => {
+              setTimeout(() => {
+                onSuccess?.('ok');
+              }, 0);
+            }}
+          >
+            <p className="ant-upload-drag-icon">
+              <InboxOutlined className="text-4xl text-[#45b630]" />
+            </p>
+            <p className="ant-upload-text font-medium">
+              Kéo thả file vào đây hoặc click để chọn file
+            </p>
+            <p className="ant-upload-hint text-gray-500">
+              Chỉ hỗ trợ file DOCX. Kích thước tối đa 1GB.
+            </p>
+          </Dragger>
+        ) : (
+          <div className="p-6 bg-gray-50 rounded-lg border-2 border-dashed border-gray-200">
+            <div className="flex items-center gap-4">
+              <div className="flex-shrink-0">
+                <FileWordOutlined className="text-4xl text-[#2B579A]" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="font-medium text-lg truncate">{fileList[0].name}</p>
+                <p className="text-gray-500">
                   {formatFileSize(fileList[0].size || 0)}
                 </p>
               </div>
+              <Button 
+                danger
+                onClick={() => setFileList([])}
+                disabled={uploading}
+              >
+                Xóa
+              </Button>
             </div>
           </div>
         )}
