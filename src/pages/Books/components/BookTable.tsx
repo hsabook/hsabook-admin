@@ -56,7 +56,7 @@ const BookTable: React.FC<BookTableProps> = ({
       }
     ]
 
-    if(record?.status_add_code_id !== 'success') {
+    if(record?.status_add_code_id === 'success') {
       items.push({
         key: 'print',
         label: 'Lấy mã ID sách để in vào bìa',
