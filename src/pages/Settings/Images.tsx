@@ -230,32 +230,10 @@ const Images: React.FC = () => {
     });
   };
 
-  const handleRemoveImage = async () => {
-    if (editingImage) {
-      try {
-        setUploading(true);
-        
-        // Update the image without an image
-        const updatedImages = images.map(item => 
-          item.index === editingImage.index 
-            ? { ...item, url: '' }
-            : item
-        );
-        
-        await updateImages(updatedImages);
-        setImages(updatedImages);
-        setFileList([]);
-        message.success('Xóa ảnh thành công');
-      } catch (error) {
-        console.error('Error removing image:', error);
-        message.error('Không thể xóa ảnh');
-      } finally {
-        setUploading(false);
-      }
-    } else {
-      // Just remove from fileList if we're adding a new image
-      setFileList([]);
-    }
+  // This function now only removes the image from the fileList state
+  // It doesn't call the API to update the image
+  const handleRemoveImage = () => {
+    setFileList([]);
     return true;
   };
 

@@ -135,7 +135,8 @@ const Teachers: React.FC = () => {
         imageUrl = editingTeacher.url;
       }
       
-      if (!imageUrl) {
+      // Only require image for new teachers, not when editing
+      if (!imageUrl && !editingTeacher) {
         message.error('Vui lòng tải lên hình ảnh');
         setUploading(false);
         return;
@@ -145,7 +146,12 @@ const Teachers: React.FC = () => {
         // Update existing teacher
         const updatedTeachers = teachers.map(item => 
           item.index === editingTeacher.index 
-            ? { ...item, name: values.name || '', url: imageUrl }
+            ? { 
+                ...item, 
+                name: values.name || '',
+                // Only update URL if a new image was uploaded or an existing one was selected
+                ...(imageUrl ? { url: imageUrl } : {})
+              }
             : item
         );
         
@@ -228,32 +234,10 @@ const Teachers: React.FC = () => {
     });
   };
 
-  const handleRemoveImage = async () => {
-    if (editingTeacher) {
-      try {
-        setUploading(true);
-        
-        // Update the teacher without an image
-        const updatedTeachers = teachers.map(item => 
-          item.index === editingTeacher.index 
-            ? { ...item, url: '' }
-            : item
-        );
-        
-        await updateTeacherBanners(updatedTeachers);
-        setTeachers(updatedTeachers);
-        setFileList([]);
-        message.success('Xóa ảnh thành công');
-      } catch (error) {
-        console.error('Error removing image:', error);
-        message.error('Không thể xóa ảnh');
-      } finally {
-        setUploading(false);
-      }
-    } else {
-      // Just remove from fileList if we're adding a new teacher
-      setFileList([]);
-    }
+  // This function now only removes the image from the fileList state
+  // It doesn't call the API to update the teacher
+  const handleRemoveImage = () => {
+    setFileList([]);
     return true;
   };
 
@@ -451,7 +435,10 @@ const Teachers: React.FC = () => {
           <Form.Item
             name="image"
             label="Ảnh đại diện"
-            rules={[{ required: true, message: 'Vui lòng tải lên ảnh đại diện!' }]}
+            rules={[
+              // Only require image for new teachers
+              { required: !editingTeacher, message: 'Vui lòng tải lên ảnh đại diện!' }
+            ]}
           >
             <div className="avatar-upload-container">
               <div className="avatar-preview">
@@ -469,7 +456,7 @@ const Teachers: React.FC = () => {
                         shape="circle" 
                         icon={<DeleteOutlined />} 
                         size="small"
-                        onClick={() => handleRemoveImage()}
+                        onClick={() => setFileList([])}
                         className="bg-red-500 hover:bg-red-600"
                       />
                     </div>
@@ -495,6 +482,9 @@ const Teachers: React.FC = () => {
                   <li>Nên sử dụng ảnh chân dung rõ nét</li>
                   <li>Tỷ lệ ảnh tốt nhất là 1:1 (vuông)</li>
                   <li>Định dạng: JPG, PNG, GIF</li>
+                  {editingTeacher && (
+                    <li className="text-blue-500">Khi chỉnh sửa, bạn có thể giữ nguyên ảnh hiện tại</li>
+                  )}
                 </ul>
               </div>
             </div>

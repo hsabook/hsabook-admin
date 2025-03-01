@@ -232,32 +232,10 @@ const Sliders: React.FC = () => {
     });
   };
 
-  const handleRemoveImage = async () => {
-    if (editingSlider) {
-      try {
-        setUploading(true);
-        
-        // Update the slider without an image
-        const updatedSliders = sliders.map(item => 
-          item.index === editingSlider.index 
-            ? { ...item, url: '' }
-            : item
-        );
-        
-        await updateSliders(updatedSliders);
-        setSliders(updatedSliders);
-        setFileList([]);
-        message.success('Xóa ảnh thành công');
-      } catch (error) {
-        console.error('Error removing image:', error);
-        message.error('Không thể xóa ảnh');
-      } finally {
-        setUploading(false);
-      }
-    } else {
-      // Just remove from fileList if we're adding a new slider
-      setFileList([]);
-    }
+  // This function now only removes the image from the fileList state
+  // It doesn't call the API to update the slider
+  const handleRemoveImage = () => {
+    setFileList([]);
     return true;
   };
 

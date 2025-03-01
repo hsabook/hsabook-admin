@@ -230,32 +230,10 @@ const Testimonials: React.FC = () => {
     });
   };
 
-  const handleRemoveImage = async () => {
-    if (editingTestimonial) {
-      try {
-        setUploading(true);
-        
-        // Update the testimonial without an image
-        const updatedTestimonials = testimonials.map(item => 
-          item.index === editingTestimonial.index 
-            ? { ...item, url: '' }
-            : item
-        );
-        
-        await updateTestimonials(updatedTestimonials);
-        setTestimonials(updatedTestimonials);
-        setFileList([]);
-        message.success('Xóa ảnh thành công');
-      } catch (error) {
-        console.error('Error removing image:', error);
-        message.error('Không thể xóa ảnh');
-      } finally {
-        setUploading(false);
-      }
-    } else {
-      // Just remove from fileList if we're adding a new testimonial
-      setFileList([]);
-    }
+  // This function now only removes the image from the fileList state
+  // It doesn't call the API to update the testimonial
+  const handleRemoveImage = () => {
+    setFileList([]);
     return true;
   };
 
@@ -336,7 +314,7 @@ const Testimonials: React.FC = () => {
           <Button
             type="text"
             danger
-            icon={<DeleteOutlined />}
+            icon={ <DeleteOutlined />}
             onClick={() => handleDeleteTestimonial(record)}
           />
         </Space>
