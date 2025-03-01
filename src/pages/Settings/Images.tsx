@@ -6,8 +6,8 @@ import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, us
 import { SortableContext, verticalListSortingStrategy, useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { uploadFile } from '../../api/upload';
-import { getSliders, updateSliders } from '../../api/sliders';
-import type { Slider } from '../../api/sliders/types';
+import { getImages, updateImages } from '../../api/images';
+import type { ImageItem } from '../../api/images/types';
 
 const { confirm } = Modal;
 
@@ -28,11 +28,11 @@ const SortableItem = ({ id, children }: { id: string; children: React.ReactNode 
   );
 };
 
-const Sliders: React.FC = () => {
-  const [sliders, setSliders] = useState<Slider[]>([]);
+const Images: React.FC = () => {
+  const [images, setImages] = useState<ImageItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [editingSlider, setEditingSlider] = useState<Slider | null>(null);
+  const [editingImage, setEditingImage] = useState<ImageItem | null>(null);
   const [form] = Form.useForm();
   const [fileList, setFileList] = useState<UploadFile[]>([]);
   const [uploading, setUploading] = useState(false);
@@ -48,44 +48,44 @@ const Sliders: React.FC = () => {
   );
 
   useEffect(() => {
-    fetchSliders();
+    fetchImages();
   }, []);
 
-  const fetchSliders = async () => {
+  const fetchImages = async () => {
     try {
       setLoading(true);
-      const response = await getSliders();
-      // Sort sliders by index
-      const sortedSliders = response.data.sort((a, b) => a.index - b.index);
-      setSliders(sortedSliders);
+      const response = await getImages();
+      // Sort images by index
+      const sortedImages = response.data.sort((a, b) => a.index - b.index);
+      setImages(sortedImages);
     } catch (error) {
-      console.error('Error fetching sliders:', error);
-      message.error('Không thể tải danh sách sliders');
+      console.error('Error fetching images:', error);
+      message.error('Không thể tải danh sách hình ảnh');
     } finally {
       setLoading(false);
     }
   };
 
-  const handleAddSlider = () => {
-    setEditingSlider(null);
+  const handleAddImage = () => {
+    setEditingImage(null);
     setFileList([]);
     form.resetFields();
     setIsModalOpen(true);
   };
 
-  const handleEditSlider = (slider: Slider) => {
-    setEditingSlider(slider);
+  const handleEditImage = (image: ImageItem) => {
+    setEditingImage(image);
     form.setFieldsValue({
-      name: slider.name,
+      name: image.name,
     });
     
-    if (slider.url) {
+    if (image.url) {
       setFileList([
         {
           uid: '-1',
           name: 'Current Image',
           status: 'done',
-          url: slider.url,
+          url: image.url,
         },
       ]);
     } else {
@@ -95,28 +95,28 @@ const Sliders: React.FC = () => {
     setIsModalOpen(true);
   };
 
-  const handleDeleteSlider = (slider: Slider) => {
+  const handleDeleteImage = (image: ImageItem) => {
     Modal.confirm({
-      title: 'Xác nhận xóa slider',
-      content: `Bạn có chắc chắn muốn xóa slider "${slider.name || 'không tên'}" không?`,
+      title: 'Xác nhận xóa hình ảnh',
+      content: `Bạn có chắc chắn muốn xóa hình ảnh "${image.name || 'không tên'}" không?`,
       okText: 'Xóa',
       okType: 'danger',
       cancelText: 'Hủy',
       onOk: async () => {
         try {
-          const newSliders = sliders.filter(item => item.index !== slider.index);
-          // Reindex sliders
-          const reindexedSliders = newSliders.map((item, index) => ({
+          const newImages = images.filter(item => item.index !== image.index);
+          // Reindex images
+          const reindexedImages = newImages.map((item, index) => ({
             ...item,
             index,
           }));
           
-          await updateSliders(reindexedSliders);
-          setSliders(reindexedSliders);
-          message.success('Xóa slider thành công');
+          await updateImages(reindexedImages);
+          setImages(reindexedImages);
+          message.success('Xóa hình ảnh thành công');
         } catch (error) {
-          console.error('Error deleting slider:', error);
-          message.error('Không thể xóa slider');
+          console.error('Error deleting image:', error);
+          message.error('Không thể xóa hình ảnh');
         }
       },
     });
@@ -132,9 +132,9 @@ const Sliders: React.FC = () => {
       // If there's a new file, upload it
       if (fileList.length > 0 && fileList[0].originFileObj) {
         imageUrl = await uploadFile(fileList[0].originFileObj);
-      } else if (editingSlider && fileList.length > 0) {
+      } else if (editingImage && fileList.length > 0) {
         // Keep existing URL if editing and no new file
-        imageUrl = editingSlider.url;
+        imageUrl = editingImage.url;
       }
       
       if (!imageUrl) {
@@ -143,37 +143,37 @@ const Sliders: React.FC = () => {
         return;
       }
       
-      if (editingSlider) {
-        // Update existing slider
-        const updatedSliders = sliders.map(item => 
-          item.index === editingSlider.index 
+      if (editingImage) {
+        // Update existing image
+        const updatedImages = images.map(item => 
+          item.index === editingImage.index 
             ? { ...item, name: values.name || '', url: imageUrl }
             : item
         );
         
-        await updateSliders(updatedSliders);
-        setSliders(updatedSliders);
-        message.success('Cập nhật slider thành công');
+        await updateImages(updatedImages);
+        setImages(updatedImages);
+        message.success('Cập nhật hình ảnh thành công');
       } else {
-        // Add new slider
-        const newSlider: Slider = {
-          index: sliders.length,
+        // Add new image
+        const newImage: ImageItem = {
+          index: images.length,
           name: values.name || '',
           url: imageUrl,
         };
         
-        const updatedSliders = [...sliders, newSlider];
-        await updateSliders(updatedSliders);
-        setSliders(updatedSliders);
-        message.success('Thêm slider mới thành công');
+        const updatedImages = [...images, newImage];
+        await updateImages(updatedImages);
+        setImages(updatedImages);
+        message.success('Thêm hình ảnh mới thành công');
       }
       
       setIsModalOpen(false);
       setFileList([]);
       form.resetFields();
     } catch (error) {
-      console.error('Error saving slider:', error);
-      message.error('Không thể lưu slider');
+      console.error('Error saving image:', error);
+      message.error('Không thể lưu hình ảnh');
     } finally {
       setUploading(false);
     }
@@ -183,31 +183,31 @@ const Sliders: React.FC = () => {
     const { active, over } = event;
     
     if (active.id !== over.id) {
-      const oldIndex = sliders.findIndex(item => `${item.index}` === active.id);
-      const newIndex = sliders.findIndex(item => `${item.index}` === over.id);
+      const oldIndex = images.findIndex(item => `${item.index}` === active.id);
+      const newIndex = images.findIndex(item => `${item.index}` === over.id);
       
-      const newSliders = [...sliders];
-      const [movedItem] = newSliders.splice(oldIndex, 1);
-      newSliders.splice(newIndex, 0, movedItem);
+      const newImages = [...images];
+      const [movedItem] = newImages.splice(oldIndex, 1);
+      newImages.splice(newIndex, 0, movedItem);
       
-      // Reindex sliders
-      const reindexedSliders = newSliders.map((item, index) => ({
+      // Reindex images
+      const reindexedImages = newImages.map((item, index) => ({
         ...item,
         index,
       }));
       
       try {
         // Update UI immediately
-        setSliders(reindexedSliders);
+        setImages(reindexedImages);
         
         // Silently call API without showing loading state or success message
-        await updateSliders(reindexedSliders);
+        await updateImages(reindexedImages);
       } catch (error) {
-        console.error('Error reordering sliders:', error);
+        console.error('Error reordering images:', error);
         // Only show error message if the API call fails
         message.error('Không thể thay đổi vị trí');
         // Revert to original order if API call fails
-        fetchSliders();
+        fetchImages();
       }
     }
   };
@@ -231,19 +231,19 @@ const Sliders: React.FC = () => {
   };
 
   const handleRemoveImage = async () => {
-    if (editingSlider) {
+    if (editingImage) {
       try {
         setUploading(true);
         
-        // Update the slider without an image
-        const updatedSliders = sliders.map(item => 
-          item.index === editingSlider.index 
+        // Update the image without an image
+        const updatedImages = images.map(item => 
+          item.index === editingImage.index 
             ? { ...item, url: '' }
             : item
         );
         
-        await updateSliders(updatedSliders);
-        setSliders(updatedSliders);
+        await updateImages(updatedImages);
+        setImages(updatedImages);
         setFileList([]);
         message.success('Xóa ảnh thành công');
       } catch (error) {
@@ -253,7 +253,7 @@ const Sliders: React.FC = () => {
         setUploading(false);
       }
     } else {
-      // Just remove from fileList if we're adding a new slider
+      // Just remove from fileList if we're adding a new image
       setFileList([]);
     }
     return true;
@@ -307,14 +307,12 @@ const Sliders: React.FC = () => {
       render: (url: string) => (
         <Image
           src={url}
-          alt="Slider"
+          alt="Image"
           width={150}
           height={80}
           className="object-cover rounded"
           style={{ objectFit: 'cover' }}
-          preview={{
-            mask: 'Xem',
-          }}
+          preview={true}
         />
       ),
     },
@@ -328,18 +326,18 @@ const Sliders: React.FC = () => {
       title: 'Thao tác',
       key: 'action',
       width: 150,
-      render: (_: any, record: Slider) => (
+      render: (_: any, record: ImageItem) => (
         <Space onClick={(e) => e.stopPropagation()}>
           <Button
             type="text"
             icon={<EditOutlined />}
-            onClick={() => handleEditSlider(record)}
+            onClick={() => handleEditImage(record)}
           />
           <Button
             type="text"
             danger
             icon={<DeleteOutlined />}
-            onClick={() => handleDeleteSlider(record)}
+            onClick={() => handleDeleteImage(record)}
           />
         </Space>
       ),
@@ -348,15 +346,15 @@ const Sliders: React.FC = () => {
 
   return (
     <Card 
-      title="Quản lý Sliders"
+      title="Vinh danh học sinh"
       extra={
         <Button
           type="primary"
           icon={<PlusOutlined />}
-          onClick={handleAddSlider}
+          onClick={handleAddImage}
           className="bg-[#45b630]"
         >
-          Thêm Slider
+          Thêm hình ảnh
         </Button>
       }
     >
@@ -371,11 +369,11 @@ const Sliders: React.FC = () => {
           onDragEnd={handleDragEnd}
         >
           <SortableContext
-            items={sliders.map(item => `${item.index}`)}
+            items={images.map(item => `${item.index}`)}
             strategy={verticalListSortingStrategy}
           >
             <Table
-              dataSource={sliders}
+              dataSource={images}
               columns={columns}
               rowKey="index"
               pagination={false}
@@ -396,12 +394,12 @@ const Sliders: React.FC = () => {
       )}
 
       <Modal
-        title={editingSlider ? 'Chỉnh sửa Slider' : 'Thêm Slider mới'}
+        title={editingImage ? 'Chỉnh sửa hình ảnh' : 'Thêm hình ảnh mới'}
         open={isModalOpen}
         onOk={handleModalOk}
         onCancel={() => setIsModalOpen(false)}
         confirmLoading={uploading}
-        okText={editingSlider ? 'Cập nhật' : 'Thêm mới'}
+        okText={editingImage ? 'Cập nhật' : 'Thêm mới'}
         cancelText="Hủy"
         okButtonProps={{ className: 'bg-[#45b630]' }}
       >
@@ -411,21 +409,21 @@ const Sliders: React.FC = () => {
         >
           <Form.Item
             name="name"
-            label="Tên Slider"
+            label="Tên hình ảnh"
           >
-            <Input placeholder="Nhập tên slider (không bắt buộc)" />
+            <Input placeholder="Nhập tên hình ảnh (không bắt buộc)" />
           </Form.Item>
 
           <Form.Item
             name="image"
             label="Hình ảnh"
-            rules={[{ required: !editingSlider, message: 'Vui lòng tải lên hình ảnh!' }]}
+            rules={[{ required: !editingImage, message: 'Vui lòng tải lên hình ảnh!' }]}
           >
             <Upload
               listType="picture-card"
               {...uploadProps}
               maxCount={1}
-              className="slider-upload"
+              className="image-upload"
               showUploadList={{ showPreviewIcon: true, showRemoveIcon: true }}
             >
               {fileList.length === 0 && (
@@ -440,13 +438,13 @@ const Sliders: React.FC = () => {
       </Modal>
 
       <style>{`
-        .slider-upload .ant-upload-list-item {
+        .image-upload .ant-upload-list-item {
           width: 100% !important;
           height: 100% !important;
           padding: 8px !important;
         }
         
-        .slider-upload .ant-upload-list-item-thumbnail {
+        .image-upload .ant-upload-list-item-thumbnail {
           width: 100% !important;
           height: 100% !important;
           position: relative !important;
@@ -455,7 +453,7 @@ const Sliders: React.FC = () => {
           justify-content: center !important;
         }
         
-        .slider-upload .ant-upload-list-item-thumbnail img {
+        .image-upload .ant-upload-list-item-thumbnail img {
           width: 100% !important;
           height: 100% !important;
           object-fit: contain !important;
@@ -463,22 +461,22 @@ const Sliders: React.FC = () => {
           max-height: 100% !important;
         }
         
-        .slider-upload .ant-upload-list-item-container {
+        .image-upload .ant-upload-list-item-container {
           width: 100% !important;
           height: 100% !important;
         }
         
-        .slider-upload .ant-upload-select {
+        .image-upload .ant-upload-select {
           width: 100% !important;
           height: 100% !important;
         }
         
-        .slider-upload .ant-upload-list-picture-card-container {
+        .image-upload .ant-upload-list-picture-card-container {
           width: 100% !important;
           height: 200px !important;
         }
         
-        .slider-upload .ant-upload.ant-upload-select {
+        .image-upload .ant-upload.ant-upload-select {
           width: 100% !important;
           height: 200px !important;
           display: flex !important;
@@ -487,7 +485,7 @@ const Sliders: React.FC = () => {
         }
         
         /* Hide the upload button when there's an image */
-        .slider-upload .ant-upload-list-item-container + .ant-upload {
+        .image-upload .ant-upload-list-item-container + .ant-upload {
           display: none !important;
         }
         
@@ -515,4 +513,4 @@ const Sliders: React.FC = () => {
   );
 };
 
-export default Sliders;
+export default Images;

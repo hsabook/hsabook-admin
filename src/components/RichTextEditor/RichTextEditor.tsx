@@ -36,6 +36,7 @@ const RichTextEditor = forwardRef<RichTextEditorRef, RichTextEditorProps>(({
         padding: 1rem;
       }
     `,
+    readonly: false, // Fix for "All created TinyMCE editors are configured to be read-only" error
     setup: (editor: any) => {
       editor.on('init', () => {
         if (placeholder) {

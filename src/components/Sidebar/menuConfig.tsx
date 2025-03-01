@@ -5,6 +5,9 @@ import {
   UserOutlined,
   InboxOutlined,
   SettingOutlined,
+  LinkOutlined,
+  PictureOutlined,
+  CommentOutlined
 } from '@ant-design/icons';
 
 const iconStyle = { fontSize: '20px' };
@@ -77,9 +80,19 @@ export const menuItems = [
         path: '/settings/teachers'
       },
       { 
-        key: 'settings-searches',
-        label: 'Tìm kiếm gần đây',
-        path: '/settings/recent-searches'
+        key: 'settings-links',
+        label: 'Liên kết',
+        path: '/settings/links'
+      },
+      { 
+        key: 'settings-images',
+        label: 'Vinh danh học sinh',
+        path: '/settings/images'
+      },
+      { 
+        key: 'settings-testimonials',
+        label: 'Cảm nhận học sinh',
+        path: '/settings/testimonials'
       },
     ],
   },

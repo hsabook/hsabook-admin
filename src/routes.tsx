@@ -4,7 +4,7 @@ import Dashboard from './pages/Dashboard';
 import { BookList, BookCategories, BookIds } from './pages/Books';
 import { UserManagement } from './pages/Users';
 import { Questions, Exams } from './pages/Warehouse';
-import { Sliders, Teachers, RecentSearches } from './pages/Settings';
+import { Sliders, Teachers, Links, Images, Testimonials } from './pages/Settings';
 import BookMenu from './pages/Books/components/BookMenu/BookMenu';
 
 const AppRoutes: React.FC = () => {
@@ -28,7 +28,9 @@ const AppRoutes: React.FC = () => {
       {/* Settings routes */}
       <Route path="/settings/sliders" element={<Sliders />} />
       <Route path="/settings/teachers" element={<Teachers />} />
-      <Route path="/settings/recent-searches" element={<RecentSearches />} />
+      <Route path="/settings/links" element={<Links />} />
+      <Route path="/settings/images" element={<Images />} />
+      <Route path="/settings/testimonials" element={<Testimonials />} />
     </Routes>
   );
 };
