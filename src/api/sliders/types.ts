@@ -2,6 +2,7 @@ export interface Slider {
   index: number;
   url: string;
   name: string;
+  link?: string;
 }
 
 export interface SlidersResponse {

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Card, Button, Table, Space, Upload, Input, Modal, Form, message, Spin, Image } from 'antd';
-import { PlusOutlined, DeleteOutlined, EditOutlined, UploadOutlined, DragOutlined } from '@ant-design/icons';
+import { PlusOutlined, DeleteOutlined, EditOutlined, UploadOutlined, DragOutlined, LinkOutlined } from '@ant-design/icons';
 import type { UploadFile, UploadProps } from 'antd/es/upload/interface';
 import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
 import { SortableContext, verticalListSortingStrategy, useSortable } from '@dnd-kit/sortable';
@@ -77,6 +77,7 @@ const Sliders: React.FC = () => {
     setEditingSlider(slider);
     form.setFieldsValue({
       name: slider.name,
+      link: slider.link || '',
     });
     
     if (slider.url) {
@@ -147,7 +148,7 @@ const Sliders: React.FC = () => {
         // Update existing slider
         const updatedSliders = sliders.map(item => 
           item.index === editingSlider.index 
-            ? { ...item, name: values.name || '', url: imageUrl }
+            ? { ...item, name: values.name || '', url: imageUrl, link: values.link || '' }
             : item
         );
         
@@ -160,6 +161,7 @@ const Sliders: React.FC = () => {
           index: sliders.length,
           name: values.name || '',
           url: imageUrl,
+          link: values.link || '',
         };
         
         const updatedSliders = [...sliders, newSlider];
@@ -312,9 +314,7 @@ const Sliders: React.FC = () => {
           height={80}
           className="object-cover rounded"
           style={{ objectFit: 'cover' }}
-          preview={{
-            mask: 'Xem',
-          }}
+          preview={true}
         />
       ),
     },
@@ -323,6 +323,20 @@ const Sliders: React.FC = () => {
       dataIndex: 'name',
       key: 'name',
       render: (name: string) => name || <span className="text-gray-400">Không có tên</span>,
+    },
+    {
+      title: 'Đường dẫn',
+      dataIndex: 'link',
+      key: 'link',
+      render: (link: string) => {
+        if (!link) return <span className="text-gray-400">Không có liên kết</span>;
+        return (
+          <a href={link} target="_blank" rel="noopener noreferrer" className="text-blue-500 hover:underline flex items-center">
+            <LinkOutlined className="mr-1" />
+            {link}
+          </a>
+        );
+      },
     },
     {
       title: 'Thao tác',
@@ -414,6 +428,16 @@ const Sliders: React.FC = () => {
             label="Tên Slider"
           >
             <Input placeholder="Nhập tên slider (không bắt buộc)" />
+          </Form.Item>
+
+          <Form.Item
+            name="link"
+            label="Đường dẫn liên kết"
+          >
+            <Input 
+              placeholder="https://example.com" 
+              prefix={<LinkOutlined className="text-gray-400" />}
+            />
           </Form.Item>
 
           <Form.Item
