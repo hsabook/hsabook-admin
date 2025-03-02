@@ -35,6 +35,9 @@ const RichTextEditor = forwardRef<RichTextEditorRef, RichTextEditorProps>(({
         line-height: 1.6;
         padding: 1rem;
       }
+      .tox-statusbar__resize-handle {
+        cursor: row-resize !important;
+      }
     `,
     readonly: false, // Fix for "All created TinyMCE editors are configured to be read-only" error
     setup: (editor: any) => {
@@ -69,6 +72,16 @@ const RichTextEditor = forwardRef<RichTextEditorRef, RichTextEditorProps>(({
           onChange?.(content);
         }}
       />
+      <style jsx>{`
+        :global(.tox-statusbar) {
+          display: flex !important;
+          border-top: 1px solid #e0e0e0 !important;
+        }
+        :global(.tox-statusbar__resize-handle) {
+          display: block !important;
+          cursor: row-resize !important;
+        }
+      `}</style>
     </div>
   );
 });

@@ -8,7 +8,7 @@ export const EDITOR_OPTIONS: Partial<EditorOptions> = {
   plugins: [
     'advlist', 'autolink', 'lists', 'link', 'image', 'charmap', 'preview',
     'anchor', 'searchreplace', 'visualblocks', 'code', 'fullscreen',
-    'insertdatetime', 'media', 'table', 'help', 'wordcount',
+    'insertdatetime', 'media', 'table', 'help', 'wordcount', 'autoresize',
     'tiny_mce_wiris'
   ],
   toolbar: [
@@ -17,7 +17,7 @@ export const EDITOR_OPTIONS: Partial<EditorOptions> = {
     'tiny_mce_wiris_formulaEditor tiny_mce_wiris_formulaEditorChemistry'
   ].join(' | '),
   branding: false,
-  statusbar: false,
+  statusbar: true,
   image_title: true,
   automatic_uploads: true,
   images_upload_url: CONFIG_APP.API_ENDPOINT + '/media/upload', // Add API endpoint
@@ -47,6 +47,8 @@ export const EDITOR_OPTIONS: Partial<EditorOptions> = {
   min_height: 300,
   max_height: 800,
   autoresize_bottom_margin: 50,
+  autoresize_overflow_padding: 10,
+  autoresize_on_init: true,
   formats: {
     bold: { inline: 'strong' },
     italic: { inline: 'em' },

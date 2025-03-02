@@ -1,44 +1,34 @@
-import React, { useState } from 'react';
-import { Card, Button, Table, Space, Tag, message } from 'antd';
+import React, { useState, useEffect } from 'react';
+import { Card, Button, Table, Space, Tag, message, Spin } from 'antd';
 import { PlusOutlined, EditOutlined, DeleteOutlined, EyeOutlined } from '@ant-design/icons';
 import QuestionModal from '../../components/QuestionModal';
 import { QUESTION_TYPE, HighSchoolSubjects } from '../../components/QuestionModal/QuestionModal';
-
-// Mock data for questions
-const mockQuestions = [
-  {
-    id: '1',
-    content: 'Tính giá trị của biểu thức 2 + 3 × 4',
-    type: 'AN_ANSWER',
-    subject: 'Toan',
-    difficulty: 'easy',
-    active: true,
-    createdAt: '2025-01-05T12:00:00Z',
-  },
-  {
-    id: '2',
-    content: 'Nước sôi ở nhiệt độ bao nhiêu độ C?',
-    type: 'ENTER_ANSWER',
-    subject: 'VatLy',
-    difficulty: 'easy',
-    active: true,
-    createdAt: '2025-01-04T14:30:00Z',
-  },
-  {
-    id: '3',
-    content: 'Nguyên tố hóa học O là ký hiệu của?',
-    type: 'AN_ANSWER',
-    subject: 'HoaHoc',
-    difficulty: 'medium',
-    active: false,
-    createdAt: '2025-01-03T09:15:00Z',
-  },
-];
+import { getQuestions, createQuestion, deleteQuestion } from '../../api/questions';
+import type { Question } from '../../api/questions/types';
 
 const Questions: React.FC = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingQuestion, setEditingQuestion] = useState<any>(null);
-  const [questions, setQuestions] = useState(mockQuestions);
+  const [questions, setQuestions] = useState<Question[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+
+  useEffect(() => {
+    fetchQuestions();
+  }, []);
+
+  const fetchQuestions = async () => {
+    try {
+      setLoading(true);
+      const response = await getQuestions();
+      setQuestions(response.data.data);
+    } catch (error) {
+      console.error('Error fetching questions:', error);
+      message.error('Không thể tải danh sách câu hỏi');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleAddQuestion = () => {
     setEditingQuestion(null);
@@ -50,39 +40,110 @@ const Questions: React.FC = () => {
     setIsModalOpen(true);
   };
 
-  const handleDeleteQuestion = (id: string) => {
-    setQuestions(questions.filter(q => q.id !== id));
-    message.success('Xóa câu hỏi thành công');
+  const handleDeleteQuestion = async (id: string) => {
+    try {
+      await deleteQuestion(id);
+      setQuestions(questions.filter(q => q.id !== id));
+      message.success('Xóa câu hỏi thành công');
+    } catch (error) {
+      console.error('Error deleting question:', error);
+      message.error('Không thể xóa câu hỏi');
+    }
   };
 
-  const handleSubmitQuestion = (values: any) => {
-    console.log('Question values:', values);
-    
-    if (editingQuestion) {
-      // Update existing question
-      setQuestions(questions.map(q => 
-        q.id === editingQuestion.id ? { ...q, ...values } : q
-      ));
-      message.success('Cập nhật câu hỏi thành công');
-    } else {
-      // Add new question
-      const newQuestion = {
-        id: Date.now().toString(),
-        ...values,
-        createdAt: new Date().toISOString(),
+  const handleSubmitQuestion = async (values: any) => {
+    try {
+      setSubmitting(true);
+      
+      // Map form values to API payload
+      const getAnswerLetter = (index: number) => String.fromCharCode(65 + index);
+      
+      // Process answers based on question type
+      let options: any[] = [];
+      let answers: string[] = [];
+      
+      if (values.questionType === 'AN_ANSWER') {
+        // Single choice question
+        options = values.answers.map((answer: any, index: number) => ({
+          checked: answer.isCorrect,
+          answer: answer.content,
+          value: answer.content,
+          type: getAnswerLetter(index)
+        }));
+        
+        // Find the correct answer
+        const correctIndex = values.answers.findIndex((a: any) => a.isCorrect);
+        if (correctIndex >= 0) {
+          answers = [getAnswerLetter(correctIndex)];
+        }
+      } else if (values.questionType === 'MULTIPLE_ANSWERS') {
+        // Multiple choice question
+        options = values.answers.map((answer: any, index: number) => ({
+          checked: answer.isCorrect,
+          answer: answer.content,
+          value: answer.content,
+          type: getAnswerLetter(index)
+        }));
+        
+        // Find all correct answers
+        answers = values.answers
+          .map((answer: any, index: number) => answer.isCorrect ? getAnswerLetter(index) : null)
+          .filter(Boolean);
+      }
+      
+      // Map question type to API format
+      const questionTypeMap: Record<string, string> = {
+        'AN_ANSWER': 'Lựa chọn một đáp án',
+        'MULTIPLE_ANSWERS': 'Lựa chọn nhiều đáp án',
+        'TRUE_FALSE': 'Đúng/Sai',
+        'ENTER_ANSWER': 'Nhập đáp án',
+        'READ_UNDERSTAND': 'Đọc hiểu'
       };
-      setQuestions([...questions, newQuestion]);
-      message.success('Thêm câu hỏi mới thành công');
+      
+      // Map difficulty to API format
+      const difficultyMap: Record<string, string> = {
+        'easy': 'easy',
+        'medium': 'normal',
+        'hard': 'hard'
+      };
+      
+      const payload = {
+        active: values.active,
+        subject: values.subject,
+        level: difficultyMap[values.difficulty] || 'normal',
+        video: values.embedVideo || values.videoUrl,
+        question: values.content,
+        type: questionTypeMap[values.questionType],
+        solution: values.solution || '',
+        options,
+        answers
+      };
+      
+      if (editingQuestion) {
+        // Update existing question
+        // await updateQuestion(editingQuestion.id, payload);
+        message.success('Cập nhật câu hỏi thành công');
+      } else {
+        // Add new question
+        await createQuestion(payload);
+        message.success('Thêm câu hỏi mới thành công');
+      }
+      
+      setIsModalOpen(false);
+      fetchQuestions();
+    } catch (error) {
+      console.error('Error submitting question:', error);
+      message.error('Không thể lưu câu hỏi');
+    } finally {
+      setSubmitting(false);
     }
-    
-    setIsModalOpen(false);
   };
 
   const columns = [
     {
       title: 'Nội dung',
-      dataIndex: 'content',
-      key: 'content',
+      dataIndex: 'question',
+      key: 'question',
       render: (text: string) => (
         <div dangerouslySetInnerHTML={{ __html: text }} className="max-w-md truncate" />
       ),
@@ -91,8 +152,8 @@ const Questions: React.FC = () => {
       title: 'Loại câu hỏi',
       dataIndex: 'type',
       key: 'type',
-      render: (type: keyof typeof QUESTION_TYPE) => (
-        <Tag color="blue">{QUESTION_TYPE[type]}</Tag>
+      render: (type: string) => (
+        <Tag color="blue">{type}</Tag>
       ),
     },
     {
@@ -106,22 +167,22 @@ const Questions: React.FC = () => {
     },
     {
       title: 'Mức độ',
-      dataIndex: 'difficulty',
-      key: 'difficulty',
+      dataIndex: 'level',
+      key: 'level',
       render: (difficulty: string) => {
-        const colors = {
+        const colors: Record<string, string> = {
           easy: 'green',
-          medium: 'orange',
+          normal: 'orange',
           hard: 'red',
         };
-        const labels = {
+        const labels: Record<string, string> = {
           easy: 'Dễ',
-          medium: 'Trung bình',
+          normal: 'Trung bình',
           hard: 'Khó',
         };
         return (
-          <Tag color={colors[difficulty as keyof typeof colors]}>
-            {labels[difficulty as keyof typeof labels]}
+          <Tag color={colors[difficulty] || 'default'}>
+            {labels[difficulty] || difficulty}
           </Tag>
         );
       },
@@ -176,16 +237,22 @@ const Questions: React.FC = () => {
         </Button>
       }
     >
-      <Table
-        dataSource={questions}
-        columns={columns}
-        rowKey="id"
-        pagination={{
-          pageSize: 10,
-          showSizeChanger: true,
-          showTotal: (total) => `Tổng ${total} câu hỏi`,
-        }}
-      />
+      {loading ? (
+        <div className="flex justify-center py-12">
+          <Spin size="large" />
+        </div>
+      ) : (
+        <Table
+          dataSource={questions}
+          columns={columns}
+          rowKey="id"
+          pagination={{
+            pageSize: 10,
+            showSizeChanger: true,
+            showTotal: (total) => `Tổng ${total} câu hỏi`,
+          }}
+        />
+      )}
 
       <QuestionModal
         open={isModalOpen}
