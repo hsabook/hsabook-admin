@@ -1,9 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { Card, Button, Table, Space, Tag, message, Spin, Switch, Input } from 'antd';
-import { PlusOutlined, EditOutlined, DeleteOutlined, CopyOutlined, SearchOutlined } from '@ant-design/icons';
+import { Card, Button, Table, Space, Tag, message, Spin, Switch, Input, Modal } from 'antd';
+import { PlusOutlined, EditOutlined, DeleteOutlined, CopyOutlined, SearchOutlined, ExclamationCircleOutlined } from '@ant-design/icons';
 import QuestionModal from '../../components/QuestionModal';
 import { getQuestions, deleteQuestion, createQuestion } from '../../api/questions';
 import type { Question } from '../../api/questions/types';
+
+const { confirm } = Modal;
 
 const Questions: React.FC = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -35,15 +37,25 @@ const Questions: React.FC = () => {
     setIsModalOpen(true);
   };
 
-  const handleDeleteQuestion = async (id: string) => {
-    try {
-      await deleteQuestion(id);
-      setQuestions(questions.filter(q => q.id !== id));
-      message.success('Xóa câu hỏi thành công');
-    } catch (error) {
-      console.error('Error deleting question:', error);
-      message.error('Không thể xóa câu hỏi');
-    }
+  const showDeleteConfirm = (record: Question) => {
+    confirm({
+      title: 'Xác nhận xóa câu hỏi',
+      icon: <ExclamationCircleOutlined />,
+      content: 'Bạn có chắc chắn muốn xóa câu hỏi này không?',
+      okText: 'Xóa',
+      okType: 'danger',
+      cancelText: 'Hủy',
+      onOk: async () => {
+        try {
+          await deleteQuestion(record.id);
+          setQuestions(questions.filter(q => q.id !== record.id));
+          message.success('Xóa câu hỏi thành công');
+        } catch (error) {
+          console.error('Error deleting question:', error);
+          message.error('Không thể xóa câu hỏi');
+        }
+      },
+    });
   };
 
   const handleSearch = (value: string) => {
@@ -233,7 +245,7 @@ const Questions: React.FC = () => {
             type="text"
             danger
             icon={<DeleteOutlined />}
-            onClick={() => handleDeleteQuestion(record.id)}
+            onClick={() => showDeleteConfirm(record)}
           />
         </Space>
       ),
