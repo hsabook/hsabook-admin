@@ -92,6 +92,11 @@ const QuestionModal: React.FC<QuestionModalProps> = ({
         videoUrl = values.embedVideo;
       }
       
+      // Đảm bảo values.answers luôn là một mảng
+      if (!Array.isArray(values.answers)) {
+        values.answers = [];
+      }
+      
       // Process answers for single choice questions
       if (questionType === 'AN_ANSWER' && values.answers) {
         values.answers = values.answers.map((answer: any, index: number) => ({
@@ -181,11 +186,14 @@ const QuestionModal: React.FC<QuestionModalProps> = ({
       <Form
         form={form}
         layout="vertical"
-        initialValues={initialValues || {
-          subject: 'Toán',
-          difficulty: 'medium',
-          questionType: Object.keys(QUESTION_TYPE)[0],
-          active: true,
+        initialValues={{
+          ...(initialValues || {
+            subject: 'Toán',
+            difficulty: 'medium',
+            questionType: Object.keys(QUESTION_TYPE)[0],
+            active: true,
+          }),
+          answers: (initialValues?.answers || [])
         }}
         className="mt-4"
       >
@@ -347,7 +355,7 @@ const QuestionModal: React.FC<QuestionModalProps> = ({
         {questionType === 'AN_ANSWER' && (
           <div className="border-t pt-4 mt-4">
             <h3 className="text-base font-medium mb-3">Các đáp án</h3>
-            <Form.List name="answers">
+            <Form.List name="answers" initialValue={[]}>
               {(fields, { add, remove }) => (
                 <>
                   {fields.map((field, index) => (
@@ -418,7 +426,7 @@ const QuestionModal: React.FC<QuestionModalProps> = ({
         {questionType === 'MULTIPLE_ANSWERS' && (
           <div className="border-t pt-4 mt-4">
             <h3 className="text-base font-medium mb-3">Các đáp án</h3>
-            <Form.List name="answers">
+            <Form.List name="answers" initialValue={[]}>
               {(fields, { add, remove }) => (
                 <>
                   {fields.map((field, index) => (
