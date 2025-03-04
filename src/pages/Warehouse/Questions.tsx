@@ -19,6 +19,7 @@ const Questions: React.FC = () => {
   const [selectedSubject, setSelectedSubject] = useState<string | undefined>(undefined);
   const [selectedType, setSelectedType] = useState<string | undefined>(undefined);
   const [selectedStatus, setSelectedStatus] = useState<string | undefined>(undefined);
+  const [lastFetchTime, setLastFetchTime] = useState<Date>(new Date());
   const [pagination, setPagination] = useState({
     current: 1,
     pageSize: 10,
@@ -61,6 +62,7 @@ const Questions: React.FC = () => {
         pageSize: response.data.pagination.take,
         total: response.data.pagination.total
       });
+      setLastFetchTime(new Date());
     } catch (error) {
       console.error('Error fetching questions:', error);
       message.error('Không thể tải danh sách câu hỏi');
@@ -531,7 +533,7 @@ const Questions: React.FC = () => {
                 Hiển thị {questions.length} trên tổng số {pagination.total} câu hỏi
               </div>
               <div className="text-gray-500 text-sm">
-                Cập nhật lần cuối: {new Date().toLocaleString('vi-VN')}
+                Cập nhật lần cuối: {lastFetchTime.toLocaleString('vi-VN')}
               </div>
             </div>
             <Table
