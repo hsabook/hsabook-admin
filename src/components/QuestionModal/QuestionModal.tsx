@@ -16,30 +16,30 @@ export const QUESTION_TYPE = {
 
 export const HighSchoolSubjects = [
   // Nhóm môn bắt buộc
-  { title: 'Toán', value: 'Toán' },
-  { title: 'Ngữ văn', value: 'Ngữ văn' },
-  { title: 'Ngoại ngữ', value: 'Ngoại ngữ' },
+  { title: 'Toán', value: 'Toan' },
+  { title: 'Ngữ văn', value: 'NguVan' },
+  { title: 'Ngoại ngữ', value: 'NgoaiNgu' },
 
   // Nhóm môn Khoa học Tự nhiên
-  { title: 'Vật lý', value: 'Vật lý' },
-  { title: 'Hóa học', value: 'Hóa học' },
-  { title: 'Sinh học', value: 'Sinh học' },
+  { title: 'Vật lý', value: 'VatLy' },
+  { title: 'Hóa học', value: 'HoaHoc' },
+  { title: 'Sinh học', value: 'SinhHoc' },
 
   // Nhóm môn Khoa học Xã hội
-  { title: 'Lịch sử', value: 'Lịch sử' },
-  { title: 'Địa lý', value: 'Địa lý' },
-  { title: 'Giáo dục công dân', value: 'Giáo dục công dân' },
+  { title: 'Lịch sử', value: 'LichSu' },
+  { title: 'Địa lý', value: 'DiaLy' },
+  { title: 'Giáo dục công dân', value: 'GiaoDucCongDan' },
 
   // Nhóm môn bổ trợ
-  { title: 'Tin học', value: 'Tin học' },
-  { title: 'Công nghệ', value: 'Công nghệ' },
+  { title: 'Tin học', value: 'TinHoc' },
+  { title: 'Công nghệ', value: 'CongNghe' },
 
   // Môn Giáo dục thể chất và quốc phòng
-  { title: 'Thể dục', value: 'Thể dục' },
-  { title: 'Giáo dục quốc phòng và an ninh', value: 'Giáo dục quốc phòng và an ninh' },
+  { title: 'Thể dục', value: 'TheDuc' },
+  { title: 'Giáo dục quốc phòng và an ninh', value: 'GiaoDucQuocPhong' },
 
   // Môn Nghề phổ thông
-  { title: 'Học nghề', value: 'Học nghề' },
+  { title: 'Học nghề', value: 'HocNghe' },
 ];
 
 // Difficulty levels
@@ -225,7 +225,7 @@ const QuestionModal: React.FC<QuestionModalProps> = ({
         form={form}
         layout="vertical"
         initialValues={initialValues || {
-          subject: 'Toán',
+          subject: 'Toan',
           difficulty: 'medium',
           questionType: Object.keys(QUESTION_TYPE)[0],
           active: true,
@@ -347,7 +347,7 @@ const QuestionModal: React.FC<QuestionModalProps> = ({
             placeholder="Chọn môn học"
             options={HighSchoolSubjects.map(subject => ({
               label: subject.title,
-              value: subject.title
+              value: subject.value
             }))}
           />
         </Form.Item>

@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { Card, Button, Table, Space, Tag, message, Spin, Switch, Input, Modal } from 'antd';
+import { Card, Button, Table, Space, Tag, message, Spin, Switch, Input, Modal, Select } from 'antd';
 import { PlusOutlined, EditOutlined, DeleteOutlined, CopyOutlined, SearchOutlined, ExclamationCircleOutlined } from '@ant-design/icons';
 import QuestionModal from '../../components/QuestionModal';
 import { getQuestions, deleteQuestion, createQuestion } from '../../api/questions';
 import type { Question } from '../../api/questions/types';
+import { HighSchoolSubjects } from '../../components/QuestionModal/QuestionModal';
 
 const { confirm } = Modal;
 
@@ -14,6 +15,7 @@ const Questions: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [searchText, setSearchText] = useState('');
+  const [selectedSubject, setSelectedSubject] = useState<string>('');
   const [pagination, setPagination] = useState({
     current: 1,
     pageSize: 10,
@@ -23,10 +25,17 @@ const Questions: React.FC = () => {
   const fetchQuestions = async (page = 1, pageSize = 10) => {
     try {
       setLoading(true);
-      const response = await getQuestions({
+      const params: any = {
         take: pageSize,
         page: page
-      });
+      };
+
+      // Add subject filter if selected
+      if (selectedSubject) {
+        params.subject = selectedSubject;
+      }
+
+      const response = await getQuestions(params);
       
       setQuestions(response.data.data);
       setPagination({
@@ -44,7 +53,7 @@ const Questions: React.FC = () => {
 
   useEffect(() => {
     fetchQuestions();
-  }, []);
+  }, [selectedSubject]); // Re-fetch when subject changes
 
   const handleTableChange = (newPagination: any) => {
     fetchQuestions(newPagination.current, newPagination.pageSize);
@@ -81,6 +90,12 @@ const Questions: React.FC = () => {
     setSearchText(value);
     // Reset to first page when searching
     fetchQuestions(1, pagination.pageSize);
+  };
+
+  const handleSubjectChange = (value: string) => {
+    setSelectedSubject(value);
+    // Reset pagination when changing subject
+    setPagination(prev => ({ ...prev, current: 1 }));
   };
 
   const handleSubmitQuestion = async (values: any) => {
@@ -182,12 +197,10 @@ const Questions: React.FC = () => {
       dataIndex: 'subject',
       key: 'subject',
       width: 120,
-      filters: [
-        { text: 'Toán', value: 'Toán' },
-        { text: 'Lý', value: 'Lý' },
-        { text: 'Hóa', value: 'Hóa' },
-      ],
-      onFilter: (value: string, record: Question) => record.subject === value,
+      render: (subject: string) => {
+        const subjectInfo = HighSchoolSubjects.find(s => s.value === subject);
+        return subjectInfo ? subjectInfo.title : subject;
+      }
     },
     {
       title: 'Loại câu hỏi',
@@ -215,24 +228,24 @@ const Questions: React.FC = () => {
     },
     {
       title: 'ID Câu hỏi',
-      dataIndex: 'id',
-      key: 'id',
+      dataIndex: 'code_id',
+      key: 'code_id',
       width: 120,
-      render: (id: string) => (
+      render: (code_id: string) => (
         <Space>
-          <span>Q{id.slice(-5)}</span>
+          <span>{code_id}</span>
           <Button
             type="text"
             icon={<CopyOutlined className="text-gray-400 hover:text-gray-600" />}
             size="small"
             onClick={() => {
-              navigator.clipboard.writeText(id);
+              navigator.clipboard.writeText(code_id);
               message.success('Đã sao chép ID');
             }}
           />
         </Space>
       ),
-      sorter: (a: Question, b: Question) => a.id.localeCompare(b.id),
+      sorter: (a: Question, b: Question) => a.code_id.localeCompare(b.code_id),
     },
     {
       title: 'Lần cuối cập nhật',
@@ -276,15 +289,28 @@ const Questions: React.FC = () => {
   return (
     <div className="space-y-4">
       <Card className="shadow-sm">
-        <div className="flex items-center justify-between">
-          <Input
-            placeholder="Tìm kiếm câu hỏi..."
-            prefix={<SearchOutlined className="text-gray-400" />}
-            value={searchText}
-            onChange={(e) => handleSearch(e.target.value)}
-            className="max-w-md"
-            allowClear
-          />
+        <div className="flex items-center justify-between gap-4">
+          <div className="flex items-center gap-4 flex-1">
+            <Input
+              placeholder="Tìm kiếm câu hỏi..."
+              prefix={<SearchOutlined className="text-gray-400" />}
+              value={searchText}
+              onChange={(e) => handleSearch(e.target.value)}
+              className="max-w-md"
+              allowClear
+            />
+            <Select
+              placeholder="Chọn môn học"
+              value={selectedSubject}
+              onChange={handleSubjectChange}
+              style={{ width: 200 }}
+              allowClear
+              options={HighSchoolSubjects.map(subject => ({
+                label: subject.title,
+                value: subject.value
+              }))}
+            />
+          </div>
           <Button
             type="primary"
             icon={<PlusOutlined />}
