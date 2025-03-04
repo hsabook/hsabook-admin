@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Drawer, Form, Input, Select, Switch, Button, Space, Upload, message, Radio, Checkbox, Card } from 'antd';
 import { UploadOutlined, CodeOutlined, PlusOutlined, VideoCameraOutlined, YoutubeOutlined } from '@ant-design/icons';
 import RichTextEditor from '../../components/RichTextEditor';
+import VideoDisplay from '../../components/VideoDisplay';
 import type { UploadFile } from 'antd/es/upload/interface';
 import { uploadFile } from '../../api/upload';
 
@@ -103,12 +104,23 @@ const QuestionModal: React.FC<QuestionModalProps> = ({
       
       // Cập nhật state cho video
       if (initialValues.embedVideo) {
-        setVideoType('embed');
-        setEmbedCode(initialValues.embedVideo);
-        form.setFieldsValue({ embedVideo: initialValues.embedVideo });
+        // Kiểm tra nếu là mã nhúng iframe
+        if (initialValues.embedVideo.includes('<iframe')) {
+          setVideoType('embed');
+          setEmbedCode(initialValues.embedVideo);
+          form.setFieldsValue({ embedVideo: initialValues.embedVideo });
+        } else if (initialValues.embedVideo.startsWith('https') && /\.(mp4|mov|webm|ogg)$/i.test(initialValues.embedVideo)) {
+          // Nếu là URL trực tiếp đến file video, chuyển sang tab Upload
+          setVideoType('upload');
+          setVideoUrl(initialValues.embedVideo);
+          // Lưu trữ URL video để sử dụng khi chuyển đổi loại video
+          form.setFieldsValue({ videoUrl: initialValues.embedVideo });
+        }
       } else if (initialValues.videoUrl) {
         setVideoType('upload');
         setVideoUrl(initialValues.videoUrl);
+        // Lưu trữ URL video để sử dụng khi chuyển đổi loại video
+        form.setFieldsValue({ videoUrl: initialValues.videoUrl });
       }
       
       // Cập nhật state cho đáp án đúng
@@ -142,10 +154,25 @@ const QuestionModal: React.FC<QuestionModalProps> = ({
 
       // Handle video upload if needed
       let finalVideoUrl = '';
-      if (videoType === 'upload' && videoFileList.length > 0 && videoFileList[0].originFileObj) {
-        finalVideoUrl = await uploadFile(videoFileList[0].originFileObj);
-      } else if (videoType === 'embed' && values.embedVideo) {
-        finalVideoUrl = values.embedVideo;
+      if (videoType === 'upload') {
+        if (videoFileList.length > 0 && videoFileList[0].originFileObj) {
+          // Nếu có file upload
+          finalVideoUrl = await uploadFile(videoFileList[0].originFileObj);
+        } else if (videoUrl && videoUrl.startsWith('https')) {
+          // Nếu là URL trực tiếp đã được nhập
+          finalVideoUrl = videoUrl;
+        }
+      } else if (videoType === 'embed') {
+        // Nếu là mã nhúng iframe
+        if (values.embedVideo && values.embedVideo.includes('<iframe')) {
+          finalVideoUrl = values.embedVideo;
+        }
+      } else if (initialValues && initialValues.videoUrl) {
+        // Giữ lại URL video cũ nếu không có thay đổi
+        finalVideoUrl = initialValues.videoUrl;
+      } else if (initialValues && initialValues.embedVideo) {
+        // Giữ lại mã nhúng video cũ nếu không có thay đổi
+        finalVideoUrl = initialValues.embedVideo;
       }
 
       // Process answers for single choice questions
@@ -194,12 +221,25 @@ const QuestionModal: React.FC<QuestionModalProps> = ({
 
   const handleVideoTypeChange = (type: 'upload' | 'embed') => {
     setVideoType(type);
-    if (type !== 'upload') {
-      setVideoUrl('');
-      setVideoFileList([]);
-    }
-    if (type !== 'embed') {
-      setEmbedCode('');
+    
+    // Chỉ xóa dữ liệu khi không phải đang chỉnh sửa câu hỏi
+    if (!initialValues) {
+      if (type !== 'upload') {
+        setVideoUrl('');
+        setVideoFileList([]);
+      }
+      if (type !== 'embed') {
+        setEmbedCode('');
+      }
+    } else {
+      // Nếu đang chỉnh sửa câu hỏi, giữ lại dữ liệu video
+      // Chỉ cập nhật loại video mà không xóa dữ liệu
+      if (type === 'upload' && !videoUrl && initialValues.videoUrl) {
+        setVideoUrl(initialValues.videoUrl);
+      } else if (type === 'embed' && !embedCode && initialValues.embedVideo) {
+        setEmbedCode(initialValues.embedVideo);
+        form.setFieldsValue({ embedVideo: initialValues.embedVideo });
+      }
     }
   };
 
@@ -241,12 +281,21 @@ const QuestionModal: React.FC<QuestionModalProps> = ({
     const code = e.target.value;
     setEmbedCode(code);
 
-    // Extract src from iframe if possible
-    const srcMatch = code.match(/src=["'](.*?)["']/);
-    if (srcMatch && srcMatch[1]) {
-      form.setFieldsValue({ embedVideo: srcMatch[1] });
-    } else {
-      form.setFieldsValue({ embedVideo: code });
+    // Chỉ chấp nhận mã iframe, không chấp nhận URL trực tiếp
+    if (code.includes('<iframe') && code.includes('</iframe>')) {
+      // Extract src from iframe
+      const srcMatch = code.match(/src=["'](.*?)["']/);
+      if (srcMatch && srcMatch[1]) {
+        form.setFieldsValue({ embedVideo: code });
+      } else {
+        form.setFieldsValue({ embedVideo: code });
+      }
+    } else if (!code) {
+      // Nếu xóa hết nội dung
+      form.setFieldsValue({ embedVideo: '' });
+    } else if (!code.includes('<iframe')) {
+      // Nếu không phải iframe, hiển thị thông báo
+      message.warning('Vui lòng nhập mã nhúng iframe hợp lệ');
     }
   };
 
@@ -338,7 +387,7 @@ const QuestionModal: React.FC<QuestionModalProps> = ({
               <div className="flex flex-col items-center justify-center text-center">
                 <YoutubeOutlined className="text-2xl mb-2 text-red-500" />
                 <div className="font-medium">Nhúng video</div>
-                <div className="text-xs text-gray-500 mt-1">Nhúng video từ YouTube</div>
+                <div className="text-xs text-gray-500 mt-1">Nhúng video từ YouTube hoặc URL</div>
               </div>
             </Card>
           </div>
@@ -357,16 +406,16 @@ const QuestionModal: React.FC<QuestionModalProps> = ({
                 </Button>
               </Upload>
               <div className="mt-2 text-xs text-gray-500">
-                Hỗ trợ: MP4, WebM (Tối đa 100MB)
+                Hỗ trợ: MP4, MOV, WebM (Tối đa 5MB)
               </div>
 
               {videoUrl && (
                 <div className="mt-4">
                   <h4 className="text-sm font-medium mb-2">Xem trước video:</h4>
                   <div className="relative pt-[56.25%] bg-black rounded overflow-hidden">
-                    <video
+                    <video 
                       src={videoUrl}
-                      controls
+                      controls 
                       className="absolute top-0 left-0 w-full h-full"
                     />
                   </div>
@@ -379,7 +428,7 @@ const QuestionModal: React.FC<QuestionModalProps> = ({
             <div className="mt-4 p-4 bg-gray-50 rounded-lg">
               <Form.Item name="embedVideo" className="mb-1">
                 <Input.TextArea
-                  placeholder="Dán mã nhúng video từ YouTube hoặc các nền tảng khác"
+                  placeholder="Dán mã nhúng iframe từ YouTube hoặc các nền tảng khác"
                   rows={3}
                   onChange={handleEmbedCodeChange}
                 />
@@ -392,10 +441,18 @@ const QuestionModal: React.FC<QuestionModalProps> = ({
                 <div className="mt-4">
                   <h4 className="text-sm font-medium mb-2">Xem trước video:</h4>
                   <div className="relative pt-[56.25%] bg-black rounded overflow-hidden">
-                    <div
-                      className="absolute top-0 left-0 w-full h-full"
-                      dangerouslySetInnerHTML={{ __html: embedCode }}
-                    />
+                    {embedCode.includes('<iframe') ? (
+                      <div
+                        className="absolute top-0 left-0 w-full h-full"
+                        dangerouslySetInnerHTML={{ 
+                          __html: embedCode.replace('<iframe', '<iframe style="width:100%;height:100%;position:absolute;top:0;left:0;border:0;"') 
+                        }}
+                      />
+                    ) : (
+                      <div className="absolute top-0 left-0 w-full h-full flex items-center justify-center bg-gray-200 text-gray-500">
+                        Vui lòng nhập mã nhúng iframe hợp lệ
+                      </div>
+                    )}
                   </div>
                 </div>
               )}

@@ -29,11 +29,11 @@ export const menuItems = [
         label: 'Danh sách sách',
         path: '/books/list'
       },
-      { 
-        key: 'books-categories',
-        label: 'Danh mục sách',
-        path: '/books/categories'
-      },
+      // { 
+      //   key: 'books-categories',
+      //   label: 'Danh mục sách',
+      //   path: '/books/categories'
+      // },
       { 
         key: 'books-ids',
         label: 'Quản lý ID',

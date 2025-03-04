@@ -1,7 +1,8 @@
-import React, { useState, useEffect } from 'react';
-import { Card, Button, Table, Space, Tag, message, Spin, Switch, Input, Modal, Select, Row, Col, Divider, Tooltip, Badge } from 'antd';
+import React, { useState, useEffect, useRef } from 'react';
+import { Card, Button, Table, Space, Tag, message, Spin, Switch, Input, Modal, Select, Row, Col, Divider, Tooltip, Badge, Tabs } from 'antd';
 import { PlusOutlined, EditOutlined, DeleteOutlined, CopyOutlined, SearchOutlined, ExclamationCircleOutlined, ReloadOutlined, InfoCircleOutlined } from '@ant-design/icons';
 import QuestionModal from '../../components/QuestionModal';
+import VideoDisplay from '../../components/VideoDisplay';
 import { getQuestions, deleteQuestion, createQuestion, updateQuestion } from '../../api/questions';
 import type { Question } from '../../api/questions/types';
 import { HighSchoolSubjects, QUESTION_TYPE } from '../../components/QuestionModal/QuestionModal';
@@ -14,7 +15,7 @@ const Questions: React.FC = () => {
   const [editingQuestion, setEditingQuestion] = useState<any>(null);
   const [questions, setQuestions] = useState<Question[]>([]);
   const [loading, setLoading] = useState(false);
-  const [submitting, setSubmitting] = useState(false);
+  const [_, setSubmitting] = useState(false);
   const [searchText, setSearchText] = useState<string | undefined>(undefined);
   const [selectedSubject, setSelectedSubject] = useState<string | undefined>(undefined);
   const [selectedType, setSelectedType] = useState<string | undefined>(undefined);
@@ -25,6 +26,9 @@ const Questions: React.FC = () => {
     pageSize: 10,
     total: 0
   });
+  const [viewingQuestion, setViewingQuestion] = useState<any>(null);
+  const [isViewModalOpen, setIsViewModalOpen] = useState(false);
+  const viewModalRef = useRef<any>(null);
 
   const fetchQuestions = async (page = 1, pageSize = 10, _params: any = {
     code_id: undefined,
@@ -313,10 +317,35 @@ const Questions: React.FC = () => {
     {
       title: '',
       key: 'actions',
-      width: 150,
+      width: 180,
       fixed: 'right',
       render: (_: any, record: Question) => (
         <Space size="small" className="flex justify-end">
+          <Tooltip title="Xem chi tiết">
+            <Button
+              type="text"
+              icon={<InfoCircleOutlined className="text-green-500" />}
+              onClick={() => {
+                // Hiển thị loading message
+                const loadingMessage = message.loading('Đang tải thông tin câu hỏi...', 0);
+                
+                // Gọi API để lấy thông tin chi tiết của câu hỏi
+                api(`/questions/${record.id}`)
+                  .then((response) => {
+                    loadingMessage();
+                    const questionData = response.data;
+                    setViewingQuestion(questionData);
+                    setIsViewModalOpen(true);
+                  })
+                  .catch((error) => {
+                    loadingMessage();
+                    console.error('Error fetching question details:', error);
+                    message.error('Không thể tải thông tin chi tiết của câu hỏi');
+                  });
+              }}
+              className="hover:bg-green-50 transition-colors duration-300"
+            />
+          </Tooltip>
           <Tooltip title={record.active ? "Vô hiệu hóa" : "Kích hoạt"}>
             <Switch
               size="small"
@@ -567,6 +596,181 @@ const Questions: React.FC = () => {
         initialValues={editingQuestion}
         title={editingQuestion ? 'Chỉnh sửa câu hỏi' : 'Thêm mới câu hỏi'}
       />
+
+      <Modal
+        title={
+          <div className="flex items-center">
+            <InfoCircleOutlined className="text-blue-500 mr-2" />
+            <span>Chi tiết câu hỏi</span>
+          </div>
+        }
+        open={isViewModalOpen}
+        onCancel={() => {
+          setIsViewModalOpen(false);
+          setViewingQuestion(null);
+        }}
+        footer={[
+          <Button 
+            key="close" 
+            onClick={() => {
+              setIsViewModalOpen(false);
+              setViewingQuestion(null);
+            }}
+          >
+            Đóng
+          </Button>
+        ]}
+        width={800}
+        maskClosable={true}
+        destroyOnClose={false}
+        className="question-detail-modal"
+        bodyStyle={{ maxHeight: '80vh', overflowY: 'auto' }}
+      >
+        {viewingQuestion && (
+          <div className="mt-2">
+            <div className="flex flex-wrap gap-2 mb-4">
+              <Tag className="rounded-full px-3 py-1">
+                Mã: <span className="font-medium">{viewingQuestion.code_id}</span>
+              </Tag>
+              <Tag color="blue" className="rounded-full px-3 py-1">
+                {HighSchoolSubjects.find(s => s.value === viewingQuestion.subject)?.title || viewingQuestion.subject}
+              </Tag>
+              <Tag color="purple" className="rounded-full px-3 py-1">
+                {viewingQuestion.type}
+              </Tag>
+              <Tag 
+                color={
+                  viewingQuestion.level === 'easy' ? 'success' : 
+                  viewingQuestion.level === 'hard' ? 'error' : 'warning'
+                } 
+                className="rounded-full px-3 py-1"
+              >
+                {viewingQuestion.level === 'easy' ? 'Dễ' : viewingQuestion.level === 'hard' ? 'Khó' : 'Trung bình'}
+              </Tag>
+              <Tag 
+                color={viewingQuestion.active ? 'success' : 'default'} 
+                className="rounded-full px-3 py-1"
+              >
+                {viewingQuestion.active ? 'Đang kích hoạt' : 'Vô hiệu hóa'}
+              </Tag>
+            </div>
+            
+            <Tabs
+              defaultActiveKey="question"
+              items={[
+                {
+                  key: 'question',
+                  label: 'Câu hỏi & Đáp án',
+                  children: (
+                    <div className="space-y-4">
+                      <div>
+                        <h3 className="font-semibold mb-2">Nội dung câu hỏi:</h3>
+                        <div className="p-3 bg-gray-50 rounded-md" dangerouslySetInnerHTML={{ __html: viewingQuestion.question }} />
+                      </div>
+                      
+                      {viewingQuestion.options && viewingQuestion.options.length > 0 && (
+                        <div>
+                          <h3 className="font-semibold mb-2">Các đáp án:</h3>
+                          <div className="space-y-2">
+                            {viewingQuestion.options.map((option: any, index: number) => (
+                              <div 
+                                key={index} 
+                                className={`p-2 rounded-md flex items-start ${
+                                  viewingQuestion.answers.includes(option.type) 
+                                    ? 'bg-green-50 border border-green-200' 
+                                    : 'bg-gray-50'
+                                }`}
+                              >
+                                <div className="mr-2 mt-1">
+                                  {viewingQuestion.answers.includes(option.type) ? (
+                                    <Badge status="success" />
+                                  ) : (
+                                    <Badge status="default" />
+                                  )}
+                                </div>
+                                <div>
+                                  <span className="font-medium mr-2">{option.type}.</span>
+                                  <span dangerouslySetInnerHTML={{ __html: option.answer }} />
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  ),
+                },
+                {
+                  key: 'solution',
+                  label: 'Giải thích',
+                  children: (
+                    <div className="space-y-4">
+                      {viewingQuestion.solution ? (
+                        <div className="p-3 bg-blue-50 rounded-md" dangerouslySetInnerHTML={{ __html: viewingQuestion.solution }} />
+                      ) : (
+                        <div className="text-gray-500 italic p-4 text-center">
+                          Không có giải thích cho câu hỏi này
+                        </div>
+                      )}
+                    </div>
+                  ),
+                },
+                {
+                  key: 'video',
+                  label: 'Video giải thích',
+                  children: (
+                    <div className="space-y-4">
+                      {viewingQuestion.video ? (
+                        <div className="p-3 bg-gray-50 rounded-md">
+                          <VideoDisplay videoSource={viewingQuestion.video} />
+                        </div>
+                      ) : (
+                        <div className="text-gray-500 italic p-4 text-center">
+                          Không có video giải thích cho câu hỏi này
+                        </div>
+                      )}
+                    </div>
+                  ),
+                },
+                {
+                  key: 'info',
+                  label: 'Thông tin khác',
+                  children: (
+                    <div className="space-y-4">
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <span className="font-semibold">Ngày tạo:</span> 
+                          <div className="mt-1 text-gray-600">
+                            {new Date(viewingQuestion.created_at).toLocaleString('vi-VN')}
+                          </div>
+                        </div>
+                        <div>
+                          <span className="font-semibold">Cập nhật lần cuối:</span> 
+                          <div className="mt-1 text-gray-600">
+                            {new Date(viewingQuestion.updated_at).toLocaleString('vi-VN')}
+                          </div>
+                        </div>
+                        <div>
+                          <span className="font-semibold">ID:</span> 
+                          <div className="mt-1 text-gray-600">
+                            {viewingQuestion.id}
+                          </div>
+                        </div>
+                        <div>
+                          <span className="font-semibold">Mã câu hỏi:</span> 
+                          <div className="mt-1 text-gray-600">
+                            {viewingQuestion.code_id}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  ),
+                },
+              ]}
+            />
+          </div>
+        )}
+      </Modal>
     </div>
   );
 };
