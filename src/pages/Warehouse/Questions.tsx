@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { Card, Button, Table, Space, Tag, message, Spin, Switch, Input, Modal, Select } from 'antd';
-import { PlusOutlined, EditOutlined, DeleteOutlined, CopyOutlined, SearchOutlined, ExclamationCircleOutlined, ReloadOutlined } from '@ant-design/icons';
+import { Card, Button, Table, Space, Tag, message, Spin, Switch, Input, Modal, Select, Row, Col, Divider, Tooltip, Badge } from 'antd';
+import { PlusOutlined, EditOutlined, DeleteOutlined, CopyOutlined, SearchOutlined, ExclamationCircleOutlined, ReloadOutlined, InfoCircleOutlined } from '@ant-design/icons';
 import QuestionModal from '../../components/QuestionModal';
 import { getQuestions, deleteQuestion, createQuestion } from '../../api/questions';
 import type { Question } from '../../api/questions/types';
@@ -14,17 +14,22 @@ const Questions: React.FC = () => {
   const [questions, setQuestions] = useState<Question[]>([]);
   const [loading, setLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
-  const [searchText, setSearchText] = useState('');
-  const [selectedSubject, setSelectedSubject] = useState<string>('');
-  const [selectedType, setSelectedType] = useState<string>('');
-  const [selectedStatus, setSelectedStatus] = useState<string>('');
+  const [searchText, setSearchText] = useState<string | undefined>(undefined);
+  const [selectedSubject, setSelectedSubject] = useState<string | undefined>(undefined);
+  const [selectedType, setSelectedType] = useState<string | undefined>(undefined);
+  const [selectedStatus, setSelectedStatus] = useState<string | undefined>(undefined);
   const [pagination, setPagination] = useState({
     current: 1,
     pageSize: 10,
     total: 0
   });
 
-  const fetchQuestions = async (page = 1, pageSize = 10) => {
+  const fetchQuestions = async (page = 1, pageSize = 10, _params: any = {
+    code_id: undefined,
+    subject: undefined,
+    type: undefined,
+    status: undefined
+  }) => {
     try {
       setLoading(true);
       const params: any = {
@@ -33,19 +38,19 @@ const Questions: React.FC = () => {
       };
 
       if (selectedSubject) {
-        params.subject = selectedSubject;
+        params.subject = _params.subject || selectedSubject;
       }
 
       if (selectedType) {
-        params.type = selectedType;
+        params.type = _params.type || selectedType;
       }
 
       if (selectedStatus) {
-        params.status = selectedStatus;
+        params.status = _params.status || selectedStatus;
       }
 
       if (searchText) {
-        params.code_id = searchText;
+        params.code_id = _params.code_id || searchText;
       }
 
       const response = await getQuestions(params);
@@ -99,28 +104,28 @@ const Questions: React.FC = () => {
 
   const handleSearch = (value: string) => {
     setSearchText(value);
-    fetchQuestions(1, pagination.pageSize);
+    fetchQuestions(1, pagination.pageSize, { code_id: value });
   };
 
   const handleReset = () => {
-    setSearchText('');
-    setSelectedSubject('');
-    setSelectedType('');
-    setSelectedStatus('');
+    setSearchText(undefined);
+    setSelectedSubject(undefined);
+    setSelectedType(undefined);
+    setSelectedStatus(undefined);
     fetchQuestions(1, pagination.pageSize);
   };
 
   const handleSubmitQuestion = async (values: any) => {
     try {
       setSubmitting(true);
-      
+
       const getAnswerLetter = (index: number) => String.fromCharCode(65 + index);
-      
+
       let options: any[] = [];
       let answers: string[] = [];
-      
+
       const answersArray = Array.isArray(values.answers) ? values.answers : [];
-      
+
       if (values.questionType === 'AN_ANSWER') {
         options = answersArray.map((answer: any, index: number) => ({
           checked: answer.isCorrect,
@@ -128,7 +133,7 @@ const Questions: React.FC = () => {
           value: answer.content,
           type: getAnswerLetter(index)
         }));
-        
+
         const correctIndex = answersArray.findIndex((a: any) => a.isCorrect);
         if (correctIndex >= 0) {
           answers = [getAnswerLetter(correctIndex)];
@@ -140,12 +145,12 @@ const Questions: React.FC = () => {
           value: answer.content,
           type: getAnswerLetter(index)
         }));
-        
+
         answers = answersArray
           .map((answer: any, index: number) => answer.isCorrect ? getAnswerLetter(index) : null)
           .filter(Boolean);
       }
-      
+
       const questionTypeMap: Record<string, string> = {
         'AN_ANSWER': 'Lựa chọn một đáp án',
         'MULTIPLE_ANSWERS': 'Lựa chọn nhiều đáp án',
@@ -153,13 +158,13 @@ const Questions: React.FC = () => {
         'ENTER_ANSWER': 'Nhập đáp án',
         'READ_UNDERSTAND': 'Đọc hiểu'
       };
-      
+
       const difficultyMap: Record<string, string> = {
         'easy': 'easy',
         'medium': 'normal',
         'hard': 'hard'
       };
-      
+
       const payload = {
         active: values.active,
         subject: values.subject,
@@ -190,7 +195,16 @@ const Questions: React.FC = () => {
       dataIndex: 'question',
       key: 'question',
       render: (text: string) => (
-        <div dangerouslySetInnerHTML={{ __html: text }} className="line-clamp-2" />
+        <Tooltip
+          title={<div dangerouslySetInnerHTML={{ __html: text }} />}
+          placement="topLeft"
+          overlayStyle={{ maxWidth: '500px' }}
+        >
+          <div
+            dangerouslySetInnerHTML={{ __html: text }}
+            className="line-clamp-2 max-w-md cursor-pointer hover:text-blue-600 transition-colors duration-300"
+          />
+        </Tooltip>
       ),
     },
     {
@@ -200,7 +214,11 @@ const Questions: React.FC = () => {
       width: 120,
       render: (subject: string) => {
         const subjectInfo = HighSchoolSubjects.find(s => s.value === subject);
-        return subjectInfo ? subjectInfo.title : subject;
+        return (
+          <Tag color="blue" className="rounded-full px-3">
+            {subjectInfo ? subjectInfo.title : subject}
+          </Tag>
+        );
       }
     },
     {
@@ -213,9 +231,11 @@ const Questions: React.FC = () => {
           'Lựa chọn một đáp án': 'success',
           'Lựa chọn nhiều đáp án': 'purple',
           'Đúng/Sai': 'blue',
+          'Nhập đáp án': 'orange',
+          'Đọc hiểu': 'cyan'
         };
         return (
-          <Tag color={colors[type] || 'default'} className="rounded-full">
+          <Tag color={colors[type] || 'default'} className="rounded-full px-3">
             {type}
           </Tag>
         );
@@ -227,8 +247,8 @@ const Questions: React.FC = () => {
       key: 'code_id',
       width: 120,
       render: (code_id: string) => (
-        <Space>
-          <span>{code_id}</span>
+        <div className="flex items-center space-x-1">
+          <span className="font-mono text-xs bg-gray-100 px-2 py-1 rounded">{code_id}</span>
           <Button
             type="text"
             icon={<CopyOutlined className="text-gray-400 hover:text-gray-600" />}
@@ -238,7 +258,7 @@ const Questions: React.FC = () => {
               message.success('Đã sao chép ID');
             }}
           />
-        </Space>
+        </div>
       ),
     },
     {
@@ -246,7 +266,17 @@ const Questions: React.FC = () => {
       dataIndex: 'updated_at',
       key: 'updated_at',
       width: 180,
-      render: (date: string) => new Date(date).toLocaleString(),
+      render: (date: string) => (
+        <span className="text-gray-500 text-sm">
+          {new Date(date).toLocaleString('vi-VN', {
+            year: 'numeric',
+            month: '2-digit',
+            day: '2-digit',
+            hour: '2-digit',
+            minute: '2-digit'
+          })}
+        </span>
+      ),
     },
     {
       title: '',
@@ -254,122 +284,170 @@ const Questions: React.FC = () => {
       width: 150,
       fixed: 'right',
       render: (_: any, record: Question) => (
-        <Space>
-          <Switch 
-            size="small" 
-            checked={record.active}
-            onChange={(checked) => {
-              message.success(`${checked ? 'Kích hoạt' : 'Vô hiệu hóa'} câu hỏi thành công`);
-            }}
-          />
-          <Button
-            type="text"
-            icon={<EditOutlined />}
-            onClick={() => message.info('Chỉnh sửa câu hỏi')}
-          />
-          <Button
-            type="text"
-            danger
-            icon={<DeleteOutlined />}
-            onClick={() => showDeleteConfirm(record)}
-          />
+        <Space size="small" className="flex justify-end">
+          <Tooltip title={record.active ? "Vô hiệu hóa" : "Kích hoạt"}>
+            <Switch
+              size="small"
+              checked={record.active}
+              className={record.active ? "bg-[#45b630]" : ""}
+              onChange={(checked) => {
+                message.success(`${checked ? 'Kích hoạt' : 'Vô hiệu hóa'} câu hỏi thành công`);
+              }}
+            />
+          </Tooltip>
+          <Tooltip title="Chỉnh sửa câu hỏi">
+            <Button
+              type="text"
+              icon={<EditOutlined className="text-blue-500" />}
+              onClick={() => message.info('Chỉnh sửa câu hỏi')}
+              className="hover:bg-blue-50 transition-colors duration-300"
+            />
+          </Tooltip>
+          <Tooltip title="Xóa câu hỏi">
+            <Button
+              type="text"
+              danger
+              icon={<DeleteOutlined />}
+              onClick={() => showDeleteConfirm(record)}
+              className="hover:bg-red-50 transition-colors duration-300"
+            />
+          </Tooltip>
         </Space>
       ),
     },
   ];
 
   return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <h1 className="text-xl font-bold">Câu hỏi</h1>
-          <Tag color="gold" className="rounded-full">{pagination.total} câu</Tag>
+    <div className="space-y-4 p-4 bg-gray-50 min-h-screen">
+      <Card className="shadow-sm hover:shadow-md transition-shadow duration-300 rounded-lg">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-4 gap-4">
+          <div className="flex items-center gap-2">
+            <h1 className="text-xl font-bold">Câu hỏi</h1>
+            <Badge
+              count={pagination.total}
+              showZero
+              overflowCount={9999}
+              style={{ backgroundColor: '#faad14' }}
+              className="ml-2"
+            />
+          </div>
+          <Tooltip title="Thêm câu hỏi mới">
+            <Button
+              type="primary"
+              icon={<PlusOutlined />}
+              onClick={handleAddQuestion}
+              className="bg-[#45b630] hover:bg-[#3a9c29] transition-colors duration-300"
+              size="middle"
+            >
+              Thêm câu hỏi
+            </Button>
+          </Tooltip>
         </div>
-        <Button
-          type="primary"
-          icon={<PlusOutlined />}
-          onClick={handleAddQuestion}
-          className="bg-[#45b630]"
-        >
-          Thêm câu hỏi
-        </Button>
-      </div>
 
-      <Card className="shadow-sm">
-        <div className="flex flex-wrap gap-4">
-          <Input
-            placeholder="Tìm kiếm CODE"
-            value={searchText}
-            onChange={(e) => handleSearch(e.target.value)}
-            prefix={<SearchOutlined className="text-gray-400" />}
-            className="w-64 border-[#45b630] border"
-            allowClear
-          />
+        <Divider className="my-3" />
 
-          <Select
-            placeholder="Trạng thái"
-            value={selectedStatus}
-            onChange={setSelectedStatus}
-            className="w-32"
-            allowClear
-            options={[
-              { label: 'Kích hoạt', value: 'active' },
-              { label: 'Vô hiệu', value: 'inactive' }
-            ]}
-          />
-
-          <Select
-            placeholder="Loại câu hỏi"
-            value={selectedType}
-            onChange={setSelectedType}
-            className="w-40"
-            allowClear
-            options={Object.entries(QUESTION_TYPE).map(([key]) => ({
-              label: QUESTION_TYPE[key as keyof typeof QUESTION_TYPE],
-              value: key
-            }))}
-          />
-
-          <Select
-            placeholder="Phân loại"
-            value={selectedSubject}
-            onChange={setSelectedSubject}
-            className="w-40"
-            allowClear
-            options={HighSchoolSubjects.map(subject => ({
-              label: subject.title,
-              value: subject.value
-            }))}
-          />
-
-          <Button 
-            icon={<ReloadOutlined />}
-            onClick={handleReset}
-          >
-            Làm mới
-          </Button>
-        </div>
+        <Row gutter={[16, 16]} className="mb-4">
+          <Col xs={24} sm={12} md={6} lg={6}>
+            <Input
+              placeholder="Tìm kiếm CODE"
+              value={searchText}
+              onChange={(e) => handleSearch(e.target.value)}
+              prefix={<SearchOutlined className="text-gray-400" />}
+              className="w-full border-[#45b630] border hover:border-[#3a9c29] transition-colors duration-300"
+              allowClear
+              suffix={
+                <Tooltip title="Nhập mã CODE của câu hỏi">
+                  <InfoCircleOutlined className="text-gray-400" />
+                </Tooltip>
+              }
+            />
+          </Col>
+          <Col xs={24} sm={12} md={6} lg={4}>
+            <Select
+              placeholder="Trạng thái"
+              value={selectedStatus}
+              onChange={setSelectedStatus}
+              className="w-full"
+              allowClear
+              options={[
+                { label: 'Kích hoạt', value: 'active' },
+                { label: 'Vô hiệu', value: 'inactive' }
+              ]}
+            />
+          </Col>
+          <Col xs={24} sm={12} md={6} lg={5}>
+            <Select
+              placeholder="Loại câu hỏi"
+              value={selectedType}
+              onChange={setSelectedType}
+              className="w-full"
+              allowClear
+              options={Object.entries(QUESTION_TYPE).map(([key]) => ({
+                label: QUESTION_TYPE[key as keyof typeof QUESTION_TYPE],
+                value: key
+              }))}
+            />
+          </Col>
+          <Col xs={24} sm={12} md={6} lg={5}>
+            <Select
+              placeholder="Phân loại"
+              value={selectedSubject}
+              onChange={setSelectedSubject}
+              className="w-full"
+              allowClear
+              options={HighSchoolSubjects.map(subject => ({
+                label: subject.title,
+                value: subject.value
+              }))}
+            />
+          </Col>
+          <Col xs={24} sm={24} md={24} lg={4} className="flex justify-end">
+            <Tooltip title="Làm mới bộ lọc">
+              <Button
+                icon={<ReloadOutlined />}
+                onClick={handleReset}
+                className="w-full lg:w-auto hover:bg-gray-50 transition-colors duration-300"
+              >
+                Làm mới
+              </Button>
+            </Tooltip>
+          </Col>
+        </Row>
       </Card>
 
-      <Card className="shadow-sm">
+      <Card className="shadow-sm hover:shadow-md transition-shadow duration-300 rounded-lg">
         {loading ? (
           <div className="flex justify-center py-12">
             <Spin size="large" />
           </div>
         ) : (
-          <Table
-            dataSource={questions}
-            columns={columns}
-            rowKey="id"
-            pagination={{
-              ...pagination,
-              showSizeChanger: true,
-              showTotal: (total) => `Tổng ${total} câu hỏi`,
-            }}
-            onChange={handleTableChange}
-            scroll={{ x: 1200 }}
-            className="ant-table-striped"
-          />
+          <>
+            <div className="mb-4 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
+              <div className="text-gray-500 text-sm">
+                Hiển thị {questions.length} trên tổng số {pagination.total} câu hỏi
+              </div>
+              <div className="text-gray-500 text-sm">
+                Cập nhật lần cuối: {new Date().toLocaleString('vi-VN')}
+              </div>
+            </div>
+            <Table
+              dataSource={questions}
+              columns={columns as any}
+              rowKey="id"
+              pagination={{
+                ...pagination,
+                showSizeChanger: true,
+                showTotal: (total) => `Tổng ${total} câu hỏi`,
+                className: "pagination-rounded"
+              }}
+              onChange={handleTableChange}
+              scroll={{ x: 1200 }}
+              className="ant-table-striped"
+              rowClassName={(record, index) =>
+                `${index % 2 === 0 ? 'bg-white' : 'bg-gray-50'} hover:bg-blue-50 transition-colors duration-300`
+              }
+            />
+          </>
         )}
       </Card>
 
