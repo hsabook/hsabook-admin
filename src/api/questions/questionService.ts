@@ -1,7 +1,15 @@
 import { api } from '../../utils/api';
 import type { Question, QuestionsResponse, CreateQuestionPayload } from './types';
 
-export const getQuestions = async (params?: any): Promise<QuestionsResponse> => {
+interface GetQuestionsParams {
+  take?: number;
+  page?: number;
+  search?: string;
+  sort_field?: string;
+  sort_type?: 'ASC' | 'DESC';
+}
+
+export const getQuestions = async (params?: GetQuestionsParams): Promise<QuestionsResponse> => {
   const queryParams = new URLSearchParams();
   if (params) {
     Object.entries(params).forEach(([key, value]) => {

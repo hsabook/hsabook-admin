@@ -14,22 +14,40 @@ const Questions: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [searchText, setSearchText] = useState('');
+  const [pagination, setPagination] = useState({
+    current: 1,
+    pageSize: 10,
+    total: 0
+  });
 
-  useEffect(() => {
-    fetchQuestions();
-  }, []);
-
-  const fetchQuestions = async () => {
+  const fetchQuestions = async (page = 1, pageSize = 10) => {
     try {
       setLoading(true);
-      const response = await getQuestions();
+      const response = await getQuestions({
+        take: pageSize,
+        page: page
+      });
+      
       setQuestions(response.data.data);
+      setPagination({
+        current: response.data.pagination.current_page,
+        pageSize: response.data.pagination.take,
+        total: response.data.pagination.total
+      });
     } catch (error) {
       console.error('Error fetching questions:', error);
       message.error('Không thể tải danh sách câu hỏi');
     } finally {
       setLoading(false);
     }
+  };
+
+  useEffect(() => {
+    fetchQuestions();
+  }, []);
+
+  const handleTableChange = (newPagination: any) => {
+    fetchQuestions(newPagination.current, newPagination.pageSize);
   };
 
   const handleAddQuestion = () => {
@@ -48,7 +66,8 @@ const Questions: React.FC = () => {
       onOk: async () => {
         try {
           await deleteQuestion(record.id);
-          setQuestions(questions.filter(q => q.id !== record.id));
+          // Refresh current page after deletion
+          fetchQuestions(pagination.current, pagination.pageSize);
           message.success('Xóa câu hỏi thành công');
         } catch (error) {
           console.error('Error deleting question:', error);
@@ -60,7 +79,8 @@ const Questions: React.FC = () => {
 
   const handleSearch = (value: string) => {
     setSearchText(value);
-    // Implement search logic here
+    // Reset to first page when searching
+    fetchQuestions(1, pagination.pageSize);
   };
 
   const handleSubmitQuestion = async (values: any) => {
@@ -137,7 +157,8 @@ const Questions: React.FC = () => {
       await createQuestion(payload);
       message.success('Thêm câu hỏi mới thành công');
       setIsModalOpen(false);
-      fetchQuestions(); // Refresh the list
+      // Refresh first page after adding new question
+      fetchQuestions(1, pagination.pageSize);
     } catch (error) {
       console.error('Error creating question:', error);
       message.error('Không thể tạo câu hỏi');
@@ -286,10 +307,11 @@ const Questions: React.FC = () => {
             columns={columns}
             rowKey="id"
             pagination={{
-              pageSize: 10,
+              ...pagination,
               showSizeChanger: true,
               showTotal: (total) => `Tổng ${total} câu hỏi`,
             }}
+            onChange={handleTableChange}
             scroll={{ x: 1200 }}
             className="ant-table-striped"
           />
