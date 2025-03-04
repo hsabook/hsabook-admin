@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Card, Button, Table, Space, Tag, message, Spin, Switch, Input } from 'antd';
 import { PlusOutlined, EditOutlined, DeleteOutlined, CopyOutlined, SearchOutlined } from '@ant-design/icons';
 import QuestionModal from '../../components/QuestionModal';
-import { getQuestions, createQuestion, deleteQuestion } from '../../api/questions';
+import { getQuestions, deleteQuestion, createQuestion } from '../../api/questions';
 import type { Question } from '../../api/questions/types';
 
 const Questions: React.FC = () => {
@@ -10,6 +10,7 @@ const Questions: React.FC = () => {
   const [editingQuestion, setEditingQuestion] = useState<any>(null);
   const [questions, setQuestions] = useState<Question[]>([]);
   const [loading, setLoading] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
   const [searchText, setSearchText] = useState('');
 
   useEffect(() => {
@@ -48,6 +49,89 @@ const Questions: React.FC = () => {
   const handleSearch = (value: string) => {
     setSearchText(value);
     // Implement search logic here
+  };
+
+  const handleSubmitQuestion = async (values: any) => {
+    try {
+      setSubmitting(true);
+      
+      // Map form values to API payload
+      const getAnswerLetter = (index: number) => String.fromCharCode(65 + index);
+      
+      // Process answers based on question type
+      let options: any[] = [];
+      let answers: string[] = [];
+      
+      // Ensure values.answers is always an array
+      const answersArray = Array.isArray(values.answers) ? values.answers : [];
+      
+      if (values.questionType === 'AN_ANSWER') {
+        // Single choice question
+        options = answersArray.map((answer: any, index: number) => ({
+          checked: answer.isCorrect,
+          answer: answer.content,
+          value: answer.content,
+          type: getAnswerLetter(index)
+        }));
+        
+        // Find the correct answer
+        const correctIndex = answersArray.findIndex((a: any) => a.isCorrect);
+        if (correctIndex >= 0) {
+          answers = [getAnswerLetter(correctIndex)];
+        }
+      } else if (values.questionType === 'MULTIPLE_ANSWERS') {
+        // Multiple choice question
+        options = answersArray.map((answer: any, index: number) => ({
+          checked: answer.isCorrect,
+          answer: answer.content,
+          value: answer.content,
+          type: getAnswerLetter(index)
+        }));
+        
+        // Find all correct answers
+        answers = answersArray
+          .map((answer: any, index: number) => answer.isCorrect ? getAnswerLetter(index) : null)
+          .filter(Boolean);
+      }
+      
+      // Map question type to API format
+      const questionTypeMap: Record<string, string> = {
+        'AN_ANSWER': 'Lựa chọn một đáp án',
+        'MULTIPLE_ANSWERS': 'Lựa chọn nhiều đáp án',
+        'TRUE_FALSE': 'Đúng/Sai',
+        'ENTER_ANSWER': 'Nhập đáp án',
+        'READ_UNDERSTAND': 'Đọc hiểu'
+      };
+      
+      // Map difficulty to API format
+      const difficultyMap: Record<string, string> = {
+        'easy': 'easy',
+        'medium': 'normal',
+        'hard': 'hard'
+      };
+      
+      const payload = {
+        active: values.active,
+        subject: values.subject,
+        level: difficultyMap[values.difficulty] || 'normal',
+        video: values.embedVideo || values.videoUrl,
+        question: values.content,
+        type: questionTypeMap[values.questionType],
+        solution: values.solution || '',
+        options,
+        answers
+      };
+
+      await createQuestion(payload);
+      message.success('Thêm câu hỏi mới thành công');
+      setIsModalOpen(false);
+      fetchQuestions(); // Refresh the list
+    } catch (error) {
+      console.error('Error creating question:', error);
+      message.error('Không thể tạo câu hỏi');
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   const columns = [
@@ -203,10 +287,7 @@ const Questions: React.FC = () => {
       <QuestionModal
         open={isModalOpen}
         onCancel={() => setIsModalOpen(false)}
-        onSubmit={(values) => {
-          console.log(values);
-          setIsModalOpen(false);
-        }}
+        onSubmit={handleSubmitQuestion}
         initialValues={editingQuestion}
         title={editingQuestion ? 'Chỉnh sửa câu hỏi' : 'Thêm mới câu hỏi'}
       />
