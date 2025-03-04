@@ -5,6 +5,7 @@ import QuestionModal from '../../components/QuestionModal';
 import { getQuestions, deleteQuestion, createQuestion, updateQuestion } from '../../api/questions';
 import type { Question } from '../../api/questions/types';
 import { HighSchoolSubjects, QUESTION_TYPE } from '../../components/QuestionModal/QuestionModal';
+import { api } from '../../utils/api';
 
 const { confirm } = Modal;
 
@@ -166,24 +167,52 @@ const Questions: React.FC = () => {
       };
 
       const payload = {
-        active: values.active,
+        active: values.active !== undefined ? values.active : true,
         subject: values.subject,
         level: difficultyMap[values.difficulty] || 'normal',
-        video: values.embedVideo || values.videoUrl,
+        video: values.embedVideo || values.videoUrl || '',
         question: values.content,
         type: questionTypeMap[values.questionType],
         solution: values.solution || '',
-        options,
-        answers
+        options: options.length > 0 ? options : [],
+        answers: answers.length > 0 ? answers : []
       };
 
-      await createQuestion(payload);
-      message.success('Thêm câu hỏi mới thành công');
-      setIsModalOpen(false);
-      fetchQuestions(1, pagination.pageSize);
-    } catch (error) {
-      console.error('Error creating question:', error);
-      message.error('Không thể tạo câu hỏi');
+      console.log('Payload for submission:', payload);
+
+      // Hiển thị loading message
+      const loadingMessage = message.loading(
+        editingQuestion ? 'Đang cập nhật câu hỏi...' : 'Đang tạo câu hỏi mới...', 
+        0
+      );
+
+      try {
+        if (editingQuestion) {
+          // Cập nhật câu hỏi
+          await updateQuestion(editingQuestion.id, payload);
+          loadingMessage();
+          message.success('Cập nhật câu hỏi thành công');
+        } else {
+          // Tạo mới câu hỏi
+          await createQuestion(payload);
+          loadingMessage();
+          message.success('Thêm câu hỏi mới thành công');
+        }
+        
+        setIsModalOpen(false);
+        setEditingQuestion(null);
+        fetchQuestions(pagination.current, pagination.pageSize);
+      } catch (error) {
+        loadingMessage();
+        console.error('Error submitting question:', error);
+        message.error(editingQuestion 
+          ? `Không thể cập nhật câu hỏi: ${(error as any)?.message || 'Lỗi không xác định'}` 
+          : `Không thể tạo câu hỏi: ${(error as any)?.message || 'Lỗi không xác định'}`
+        );
+      }
+    } catch (validationError) {
+      console.error('Validation failed:', validationError);
+      message.error('Vui lòng kiểm tra lại thông tin câu hỏi');
     } finally {
       setSubmitting(false);
     }
@@ -321,7 +350,60 @@ const Questions: React.FC = () => {
             <Button
               type="text"
               icon={<EditOutlined className="text-blue-500" />}
-              onClick={() => message.info('Chỉnh sửa câu hỏi')}
+              onClick={() => {
+                // Chuẩn bị dữ liệu cho modal chỉnh sửa
+                const questionTypeMap: Record<string, string> = {
+                  'Lựa chọn một đáp án': 'AN_ANSWER',
+                  'Lựa chọn nhiều đáp án': 'MULTIPLE_ANSWERS',
+                  'Đúng/Sai': 'TRUE_FALSE',
+                  'Nhập đáp án': 'ENTER_ANSWER',
+                  'Đọc hiểu': 'READ_UNDERSTAND'
+                };
+                
+                const difficultyMap: Record<string, string> = {
+                  'easy': 'easy',
+                  'normal': 'medium',
+                  'hard': 'hard'
+                };
+                
+                // Hiển thị loading message
+                const loadingMessage = message.loading('Đang tải thông tin câu hỏi...', 0);
+                
+                // Gọi API để lấy thông tin chi tiết của câu hỏi
+                api(`/questions/${record.id}`)
+                  .then((response) => {
+                    loadingMessage();
+                    const questionData = response.data;
+                    
+                    // Chuyển đổi dữ liệu từ API sang định dạng form
+                    const formattedQuestion = {
+                      id: questionData.id,
+                      content: questionData.question,
+                      questionType: questionTypeMap[questionData.type] || 'AN_ANSWER',
+                      difficulty: difficultyMap[questionData.level] || 'medium',
+                      subject: questionData.subject,
+                      active: questionData.active,
+                      solution: questionData.solution || '',
+                      embedVideo: questionData.video || '',
+                      answers: Array.isArray(questionData.options) 
+                        ? questionData.options.map((option: any, index: number) => ({
+                            content: option.answer,
+                            isCorrect: questionData.answers.includes(option.type)
+                          }))
+                        : []
+                    };
+                    
+                    console.log('Formatted question for editing:', formattedQuestion);
+                    
+                    setEditingQuestion(formattedQuestion);
+                    setIsModalOpen(true);
+                  })
+                  .catch((error) => {
+                    loadingMessage();
+                    console.error('Error fetching question details:', error);
+                    message.error('Không thể tải thông tin chi tiết của câu hỏi');
+                  });
+              }}
               className="hover:bg-blue-50 transition-colors duration-300"
             />
           </Tooltip>
@@ -340,7 +422,7 @@ const Questions: React.FC = () => {
   ];
 
   return (
-    <div className="space-y-4 p-4 bg-gray-50 min-h-screen">
+    <div className="space-y-4 min-h-screen">
       <Card className="shadow-sm hover:shadow-md transition-shadow duration-300 rounded-lg">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-4 gap-4">
           <div className="flex items-center gap-2">
@@ -475,7 +557,10 @@ const Questions: React.FC = () => {
 
       <QuestionModal
         open={isModalOpen}
-        onCancel={() => setIsModalOpen(false)}
+        onCancel={() => {
+          setIsModalOpen(false);
+          setEditingQuestion(null);
+        }}
         onSubmit={handleSubmitQuestion}
         initialValues={editingQuestion}
         title={editingQuestion ? 'Chỉnh sửa câu hỏi' : 'Thêm mới câu hỏi'}

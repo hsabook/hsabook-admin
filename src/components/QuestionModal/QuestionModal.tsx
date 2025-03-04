@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Drawer, Form, Input, Select, Switch, Button, Space, Upload, message, Radio, Checkbox, Card } from 'antd';
 import { UploadOutlined, CodeOutlined, PlusOutlined, VideoCameraOutlined, YoutubeOutlined } from '@ant-design/icons';
 import RichTextEditor from '../../components/RichTextEditor';
@@ -81,6 +81,60 @@ const QuestionModal: React.FC<QuestionModalProps> = ({
   const [correctAnswer, setCorrectAnswer] = useState<string | null>(null);
   const [multipleCorrectAnswers, setMultipleCorrectAnswers] = useState<string[]>([]);
 
+  // Cập nhật form và state khi initialValues thay đổi
+  useEffect(() => {
+    if (initialValues) {
+      console.log('Initializing form with values:', initialValues);
+      
+      // Cập nhật form
+      form.setFieldsValue({
+        ...initialValues,
+        content: initialValues.content || initialValues.question,
+        subject: initialValues.subject,
+        difficulty: initialValues.difficulty,
+        questionType: initialValues.questionType,
+        active: initialValues.active,
+        solution: initialValues.solution,
+        answers: initialValues.answers || []
+      });
+      
+      // Cập nhật state cho loại câu hỏi
+      setQuestionType(initialValues.questionType);
+      
+      // Cập nhật state cho video
+      if (initialValues.embedVideo) {
+        setVideoType('embed');
+        setEmbedCode(initialValues.embedVideo);
+        form.setFieldsValue({ embedVideo: initialValues.embedVideo });
+      } else if (initialValues.videoUrl) {
+        setVideoType('upload');
+        setVideoUrl(initialValues.videoUrl);
+      }
+      
+      // Cập nhật state cho đáp án đúng
+      if (initialValues.questionType === 'AN_ANSWER' && initialValues.answers) {
+        const correctIndex = initialValues.answers.findIndex((answer: any) => answer.isCorrect);
+        if (correctIndex >= 0) {
+          setCorrectAnswer(correctIndex.toString());
+        }
+      } else if (initialValues.questionType === 'MULTIPLE_ANSWERS' && initialValues.answers) {
+        const correctIndices = initialValues.answers
+          .map((answer: any, index: number) => answer.isCorrect ? index.toString() : null)
+          .filter(Boolean);
+        setMultipleCorrectAnswers(correctIndices);
+      }
+    } else {
+      // Reset form khi không có initialValues
+      form.resetFields();
+      setQuestionType(Object.keys(QUESTION_TYPE)[0]);
+      setVideoType(null);
+      setVideoUrl('');
+      setEmbedCode('');
+      setCorrectAnswer(null);
+      setMultipleCorrectAnswers([]);
+    }
+  }, [initialValues, form, open]);
+
   const handleSubmit = async () => {
     try {
       const values = await form.validateFields();
@@ -120,13 +174,17 @@ const QuestionModal: React.FC<QuestionModalProps> = ({
       console.log('formData:', formData);
 
       await onSubmit(formData);
-      form.resetFields();
-      setVideoFileList([]);
-      setVideoUrl('');
-      setEmbedCode('');
-      setVideoType(null);
-      setCorrectAnswer(null);
-      setMultipleCorrectAnswers([]);
+      
+      // Chỉ reset form khi không phải đang chỉnh sửa
+      if (!initialValues) {
+        form.resetFields();
+        setVideoFileList([]);
+        setVideoUrl('');
+        setEmbedCode('');
+        setVideoType(null);
+        setCorrectAnswer(null);
+        setMultipleCorrectAnswers([]);
+      }
     } catch (error) {
       console.error('Validation failed:', error);
     } finally {
@@ -195,7 +253,16 @@ const QuestionModal: React.FC<QuestionModalProps> = ({
   // Custom footer for the drawer
   const drawerFooter = (
     <div className="flex justify-end gap-2">
-      <Button onClick={onCancel}>
+      <Button onClick={() => {
+        form.resetFields();
+        setVideoFileList([]);
+        setVideoUrl('');
+        setEmbedCode('');
+        setVideoType(null);
+        setCorrectAnswer(null);
+        setMultipleCorrectAnswers([]);
+        onCancel();
+      }}>
         Hủy
       </Button>
       <Button
@@ -213,7 +280,16 @@ const QuestionModal: React.FC<QuestionModalProps> = ({
     <Drawer
       title={title}
       open={open}
-      onClose={onCancel}
+      onClose={() => {
+        form.resetFields();
+        setVideoFileList([]);
+        setVideoUrl('');
+        setEmbedCode('');
+        setVideoType(null);
+        setCorrectAnswer(null);
+        setMultipleCorrectAnswers([]);
+        onCancel();
+      }}
       width={800}
       closable={true}
       footer={drawerFooter}
