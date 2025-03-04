@@ -74,6 +74,8 @@ const QuestionModal: React.FC<QuestionModalProps> = ({
   const [form] = Form.useForm();
   const [videoType, setVideoType] = useState<'upload' | 'embed' | null>(null);
   const [videoFileList, setVideoFileList] = useState<UploadFile[]>([]);
+  const [videoUrl, setVideoUrl] = useState<string>('');
+  const [embedCode, setEmbedCode] = useState<string>('');
   const [uploading, setUploading] = useState(false);
   const [questionType, setQuestionType] = useState(initialValues?.questionType || Object.keys(QUESTION_TYPE)[0]);
   const [correctAnswer, setCorrectAnswer] = useState<string | null>(null);
@@ -85,16 +87,11 @@ const QuestionModal: React.FC<QuestionModalProps> = ({
       setUploading(true);
       
       // Handle video upload if needed
-      let videoUrl = '';
+      let finalVideoUrl = '';
       if (videoType === 'upload' && videoFileList.length > 0 && videoFileList[0].originFileObj) {
-        videoUrl = await uploadFile(videoFileList[0].originFileObj);
+        finalVideoUrl = await uploadFile(videoFileList[0].originFileObj);
       } else if (videoType === 'embed' && values.embedVideo) {
-        videoUrl = values.embedVideo;
-      }
-      
-      // Đảm bảo values.answers luôn là một mảng
-      if (!Array.isArray(values.answers)) {
-        values.answers = [];
+        finalVideoUrl = values.embedVideo;
       }
       
       // Process answers for single choice questions
@@ -115,7 +112,7 @@ const QuestionModal: React.FC<QuestionModalProps> = ({
       
       const formData = {
         ...values,
-        videoUrl: videoUrl || undefined,
+        videoUrl: finalVideoUrl || undefined,
         active: values.active || false,
         solution: values.solution || '',
       };
@@ -123,6 +120,8 @@ const QuestionModal: React.FC<QuestionModalProps> = ({
       await onSubmit(formData);
       form.resetFields();
       setVideoFileList([]);
+      setVideoUrl('');
+      setEmbedCode('');
       setVideoType(null);
       setCorrectAnswer(null);
       setMultipleCorrectAnswers([]);
@@ -135,6 +134,13 @@ const QuestionModal: React.FC<QuestionModalProps> = ({
 
   const handleVideoTypeChange = (type: 'upload' | 'embed') => {
     setVideoType(type);
+    if (type !== 'upload') {
+      setVideoUrl('');
+      setVideoFileList([]);
+    }
+    if (type !== 'embed') {
+      setEmbedCode('');
+    }
   };
 
   const handleQuestionTypeChange = (value: string) => {
@@ -150,6 +156,38 @@ const QuestionModal: React.FC<QuestionModalProps> = ({
 
   const handleMultipleAnswerChange = (checkedValues: any[]) => {
     setMultipleCorrectAnswers(checkedValues);
+  };
+
+  const handleVideoUpload = async (info: any) => {
+    const { file, fileList } = info;
+    setVideoFileList(fileList);
+
+    if (file.status === 'done') {
+      message.success(`${file.name} tải lên thành công`);
+    } else if (file.status === 'error') {
+      message.error(`${file.name} tải lên thất bại`);
+    }
+
+    // Create a preview URL for the video
+    if (fileList.length > 0 && fileList[0].originFileObj) {
+      const url = URL.createObjectURL(fileList[0].originFileObj);
+      setVideoUrl(url);
+    } else {
+      setVideoUrl('');
+    }
+  };
+
+  const handleEmbedCodeChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    const code = e.target.value;
+    setEmbedCode(code);
+    
+    // Extract src from iframe if possible
+    const srcMatch = code.match(/src=["'](.*?)["']/);
+    if (srcMatch && srcMatch[1]) {
+      form.setFieldsValue({ embedVideo: srcMatch[1] });
+    } else {
+      form.setFieldsValue({ embedVideo: code });
+    }
   };
 
   // Custom footer for the drawer
@@ -186,14 +224,11 @@ const QuestionModal: React.FC<QuestionModalProps> = ({
       <Form
         form={form}
         layout="vertical"
-        initialValues={{
-          ...(initialValues || {
-            subject: 'Toán',
-            difficulty: 'medium',
-            questionType: Object.keys(QUESTION_TYPE)[0],
-            active: true,
-          }),
-          answers: (initialValues?.answers || [])
+        initialValues={initialValues || {
+          subject: 'Toán',
+          difficulty: 'medium',
+          questionType: Object.keys(QUESTION_TYPE)[0],
+          active: true,
         }}
         className="mt-4"
       >
@@ -234,7 +269,7 @@ const QuestionModal: React.FC<QuestionModalProps> = ({
             <div className="mt-4 p-4 bg-gray-50 rounded-lg">
               <Upload
                 fileList={videoFileList}
-                onChange={({ fileList }) => setVideoFileList(fileList)}
+                onChange={handleVideoUpload}
                 beforeUpload={() => false}
                 maxCount={1}
                 className="w-full"
@@ -246,6 +281,19 @@ const QuestionModal: React.FC<QuestionModalProps> = ({
               <div className="mt-2 text-xs text-gray-500">
                 Hỗ trợ: MP4, WebM (Tối đa 100MB)
               </div>
+              
+              {videoUrl && (
+                <div className="mt-4">
+                  <h4 className="text-sm font-medium mb-2">Xem trước video:</h4>
+                  <div className="relative pt-[56.25%] bg-black rounded overflow-hidden">
+                    <video 
+                      src={videoUrl} 
+                      controls 
+                      className="absolute top-0 left-0 w-full h-full"
+                    />
+                  </div>
+                </div>
+              )}
             </div>
           )}
           
@@ -255,11 +303,24 @@ const QuestionModal: React.FC<QuestionModalProps> = ({
                 <Input.TextArea 
                   placeholder="Dán mã nhúng video từ YouTube hoặc các nền tảng khác"
                   rows={3}
+                  onChange={handleEmbedCodeChange}
                 />
               </Form.Item>
               <div className="text-xs text-gray-500">
                 Ví dụ: <code>&lt;iframe src="https://www.youtube.com/embed/..."&gt;&lt;/iframe&gt;</code>
               </div>
+              
+              {embedCode && (
+                <div className="mt-4">
+                  <h4 className="text-sm font-medium mb-2">Xem trước video:</h4>
+                  <div className="relative pt-[56.25%] bg-black rounded overflow-hidden">
+                    <div 
+                      className="absolute top-0 left-0 w-full h-full"
+                      dangerouslySetInnerHTML={{ __html: embedCode }}
+                    />
+                  </div>
+                </div>
+              )}
             </div>
           )}
         </div>
@@ -355,7 +416,7 @@ const QuestionModal: React.FC<QuestionModalProps> = ({
         {questionType === 'AN_ANSWER' && (
           <div className="border-t pt-4 mt-4">
             <h3 className="text-base font-medium mb-3">Các đáp án</h3>
-            <Form.List name="answers" initialValue={[]}>
+            <Form.List name="answers">
               {(fields, { add, remove }) => (
                 <>
                   {fields.map((field, index) => (
@@ -426,7 +487,7 @@ const QuestionModal: React.FC<QuestionModalProps> = ({
         {questionType === 'MULTIPLE_ANSWERS' && (
           <div className="border-t pt-4 mt-4">
             <h3 className="text-base font-medium mb-3">Các đáp án</h3>
-            <Form.List name="answers" initialValue={[]}>
+            <Form.List name="answers">
               {(fields, { add, remove }) => (
                 <>
                   {fields.map((field, index) => (

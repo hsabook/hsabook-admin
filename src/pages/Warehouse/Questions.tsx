@@ -62,12 +62,9 @@ const Questions: React.FC = () => {
       let options: any[] = [];
       let answers: string[] = [];
       
-      // Đảm bảo values.answers luôn là một mảng
-      const answersArray = Array.isArray(values.answers) ? values.answers : [];
-      
       if (values.questionType === 'AN_ANSWER') {
         // Single choice question
-        options = answersArray.map((answer: any, index: number) => ({
+        options = values.answers.map((answer: any, index: number) => ({
           checked: answer.isCorrect,
           answer: answer.content,
           value: answer.content,
@@ -75,13 +72,13 @@ const Questions: React.FC = () => {
         }));
         
         // Find the correct answer
-        const correctIndex = answersArray.findIndex((a: any) => a.isCorrect);
+        const correctIndex = values.answers.findIndex((a: any) => a.isCorrect);
         if (correctIndex >= 0) {
           answers = [getAnswerLetter(correctIndex)];
         }
       } else if (values.questionType === 'MULTIPLE_ANSWERS') {
         // Multiple choice question
-        options = answersArray.map((answer: any, index: number) => ({
+        options = values.answers.map((answer: any, index: number) => ({
           checked: answer.isCorrect,
           answer: answer.content,
           value: answer.content,
@@ -89,7 +86,7 @@ const Questions: React.FC = () => {
         }));
         
         // Find all correct answers
-        answers = answersArray
+        answers = values.answers
           .map((answer: any, index: number) => answer.isCorrect ? getAnswerLetter(index) : null)
           .filter(Boolean);
       }
