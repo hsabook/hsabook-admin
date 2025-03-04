@@ -1,10 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { Card, Button, Table, Space, Tag, message, Spin, Switch, Input, Modal, Select } from 'antd';
-import { PlusOutlined, EditOutlined, DeleteOutlined, CopyOutlined, SearchOutlined, ExclamationCircleOutlined } from '@ant-design/icons';
+import { PlusOutlined, EditOutlined, DeleteOutlined, CopyOutlined, SearchOutlined, ExclamationCircleOutlined, ReloadOutlined } from '@ant-design/icons';
 import QuestionModal from '../../components/QuestionModal';
 import { getQuestions, deleteQuestion, createQuestion } from '../../api/questions';
 import type { Question } from '../../api/questions/types';
-import { HighSchoolSubjects } from '../../components/QuestionModal/QuestionModal';
+import { HighSchoolSubjects, QUESTION_TYPE } from '../../components/QuestionModal/QuestionModal';
 
 const { confirm } = Modal;
 
@@ -16,6 +16,8 @@ const Questions: React.FC = () => {
   const [submitting, setSubmitting] = useState(false);
   const [searchText, setSearchText] = useState('');
   const [selectedSubject, setSelectedSubject] = useState<string>('');
+  const [selectedType, setSelectedType] = useState<string>('');
+  const [selectedStatus, setSelectedStatus] = useState<string>('');
   const [pagination, setPagination] = useState({
     current: 1,
     pageSize: 10,
@@ -30,13 +32,23 @@ const Questions: React.FC = () => {
         page: page
       };
 
-      // Add subject filter if selected
       if (selectedSubject) {
         params.subject = selectedSubject;
       }
 
+      if (selectedType) {
+        params.type = selectedType;
+      }
+
+      if (selectedStatus) {
+        params.status = selectedStatus;
+      }
+
+      if (searchText) {
+        params.code_id = searchText;
+      }
+
       const response = await getQuestions(params);
-      
       setQuestions(response.data.data);
       setPagination({
         current: response.data.pagination.current_page,
@@ -53,7 +65,7 @@ const Questions: React.FC = () => {
 
   useEffect(() => {
     fetchQuestions();
-  }, [selectedSubject]); // Re-fetch when subject changes
+  }, [selectedSubject, selectedType, selectedStatus]);
 
   const handleTableChange = (newPagination: any) => {
     fetchQuestions(newPagination.current, newPagination.pageSize);
@@ -75,7 +87,6 @@ const Questions: React.FC = () => {
       onOk: async () => {
         try {
           await deleteQuestion(record.id);
-          // Refresh current page after deletion
           fetchQuestions(pagination.current, pagination.pageSize);
           message.success('Xóa câu hỏi thành công');
         } catch (error) {
@@ -88,32 +99,29 @@ const Questions: React.FC = () => {
 
   const handleSearch = (value: string) => {
     setSearchText(value);
-    // Reset to first page when searching
     fetchQuestions(1, pagination.pageSize);
   };
 
-  const handleSubjectChange = (value: string) => {
-    setSelectedSubject(value);
-    // Reset pagination when changing subject
-    setPagination(prev => ({ ...prev, current: 1 }));
+  const handleReset = () => {
+    setSearchText('');
+    setSelectedSubject('');
+    setSelectedType('');
+    setSelectedStatus('');
+    fetchQuestions(1, pagination.pageSize);
   };
 
   const handleSubmitQuestion = async (values: any) => {
     try {
       setSubmitting(true);
       
-      // Map form values to API payload
       const getAnswerLetter = (index: number) => String.fromCharCode(65 + index);
       
-      // Process answers based on question type
       let options: any[] = [];
       let answers: string[] = [];
       
-      // Ensure values.answers is always an array
       const answersArray = Array.isArray(values.answers) ? values.answers : [];
       
       if (values.questionType === 'AN_ANSWER') {
-        // Single choice question
         options = answersArray.map((answer: any, index: number) => ({
           checked: answer.isCorrect,
           answer: answer.content,
@@ -121,13 +129,11 @@ const Questions: React.FC = () => {
           type: getAnswerLetter(index)
         }));
         
-        // Find the correct answer
         const correctIndex = answersArray.findIndex((a: any) => a.isCorrect);
         if (correctIndex >= 0) {
           answers = [getAnswerLetter(correctIndex)];
         }
       } else if (values.questionType === 'MULTIPLE_ANSWERS') {
-        // Multiple choice question
         options = answersArray.map((answer: any, index: number) => ({
           checked: answer.isCorrect,
           answer: answer.content,
@@ -135,13 +141,11 @@ const Questions: React.FC = () => {
           type: getAnswerLetter(index)
         }));
         
-        // Find all correct answers
         answers = answersArray
           .map((answer: any, index: number) => answer.isCorrect ? getAnswerLetter(index) : null)
           .filter(Boolean);
       }
       
-      // Map question type to API format
       const questionTypeMap: Record<string, string> = {
         'AN_ANSWER': 'Lựa chọn một đáp án',
         'MULTIPLE_ANSWERS': 'Lựa chọn nhiều đáp án',
@@ -150,7 +154,6 @@ const Questions: React.FC = () => {
         'READ_UNDERSTAND': 'Đọc hiểu'
       };
       
-      // Map difficulty to API format
       const difficultyMap: Record<string, string> = {
         'easy': 'easy',
         'medium': 'normal',
@@ -172,7 +175,6 @@ const Questions: React.FC = () => {
       await createQuestion(payload);
       message.success('Thêm câu hỏi mới thành công');
       setIsModalOpen(false);
-      // Refresh first page after adding new question
       fetchQuestions(1, pagination.pageSize);
     } catch (error) {
       console.error('Error creating question:', error);
@@ -190,7 +192,6 @@ const Questions: React.FC = () => {
       render: (text: string) => (
         <div dangerouslySetInnerHTML={{ __html: text }} className="line-clamp-2" />
       ),
-      sorter: (a: Question, b: Question) => a.question.localeCompare(b.question),
     },
     {
       title: 'Môn học',
@@ -218,13 +219,7 @@ const Questions: React.FC = () => {
             {type}
           </Tag>
         );
-      },
-      filters: [
-        { text: 'Lựa chọn một đáp án', value: 'Lựa chọn một đáp án' },
-        { text: 'Lựa chọn nhiều đáp án', value: 'Lựa chọn nhiều đáp án' },
-        { text: 'Đúng/Sai', value: 'Đúng/Sai' },
-      ],
-      onFilter: (value: string, record: Question) => record.type === value,
+      }
     },
     {
       title: 'ID Câu hỏi',
@@ -245,7 +240,6 @@ const Questions: React.FC = () => {
           />
         </Space>
       ),
-      sorter: (a: Question, b: Question) => a.code_id.localeCompare(b.code_id),
     },
     {
       title: 'Lần cuối cập nhật',
@@ -253,7 +247,6 @@ const Questions: React.FC = () => {
       key: 'updated_at',
       width: 180,
       render: (date: string) => new Date(date).toLocaleString(),
-      sorter: (a: Question, b: Question) => new Date(a.updated_at).getTime() - new Date(b.updated_at).getTime(),
     },
     {
       title: '',
@@ -266,7 +259,6 @@ const Questions: React.FC = () => {
             size="small" 
             checked={record.active}
             onChange={(checked) => {
-              // Handle status change
               message.success(`${checked ? 'Kích hoạt' : 'Vô hiệu hóa'} câu hỏi thành công`);
             }}
           />
@@ -288,36 +280,73 @@ const Questions: React.FC = () => {
 
   return (
     <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <h1 className="text-xl font-bold">Câu hỏi</h1>
+          <Tag color="gold" className="rounded-full">{pagination.total} câu</Tag>
+        </div>
+        <Button
+          type="primary"
+          icon={<PlusOutlined />}
+          onClick={handleAddQuestion}
+          className="bg-[#45b630]"
+        >
+          Thêm câu hỏi
+        </Button>
+      </div>
+
       <Card className="shadow-sm">
-        <div className="flex items-center justify-between gap-4">
-          <div className="flex items-center gap-4 flex-1">
-            <Input
-              placeholder="Tìm kiếm câu hỏi..."
-              prefix={<SearchOutlined className="text-gray-400" />}
-              value={searchText}
-              onChange={(e) => handleSearch(e.target.value)}
-              className="max-w-md"
-              allowClear
-            />
-            <Select
-              placeholder="Chọn môn học"
-              value={selectedSubject}
-              onChange={handleSubjectChange}
-              style={{ width: 200 }}
-              allowClear
-              options={HighSchoolSubjects.map(subject => ({
-                label: subject.title,
-                value: subject.value
-              }))}
-            />
-          </div>
-          <Button
-            type="primary"
-            icon={<PlusOutlined />}
-            onClick={handleAddQuestion}
-            className="bg-[#45b630]"
+        <div className="flex flex-wrap gap-4">
+          <Input
+            placeholder="Tìm kiếm CODE"
+            value={searchText}
+            onChange={(e) => handleSearch(e.target.value)}
+            prefix={<SearchOutlined className="text-gray-400" />}
+            className="w-64 border-[#45b630] border"
+            allowClear
+          />
+
+          <Select
+            placeholder="Trạng thái"
+            value={selectedStatus}
+            onChange={setSelectedStatus}
+            className="w-32"
+            allowClear
+            options={[
+              { label: 'Kích hoạt', value: 'active' },
+              { label: 'Vô hiệu', value: 'inactive' }
+            ]}
+          />
+
+          <Select
+            placeholder="Loại câu hỏi"
+            value={selectedType}
+            onChange={setSelectedType}
+            className="w-40"
+            allowClear
+            options={Object.entries(QUESTION_TYPE).map(([key]) => ({
+              label: QUESTION_TYPE[key as keyof typeof QUESTION_TYPE],
+              value: key
+            }))}
+          />
+
+          <Select
+            placeholder="Phân loại"
+            value={selectedSubject}
+            onChange={setSelectedSubject}
+            className="w-40"
+            allowClear
+            options={HighSchoolSubjects.map(subject => ({
+              label: subject.title,
+              value: subject.value
+            }))}
+          />
+
+          <Button 
+            icon={<ReloadOutlined />}
+            onClick={handleReset}
           >
-            Thêm câu hỏi
+            Làm mới
           </Button>
         </div>
       </Card>
