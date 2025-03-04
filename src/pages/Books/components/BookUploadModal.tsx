@@ -34,7 +34,7 @@ const BookUploadModal: React.FC<BookUploadModalProps> = ({
   useEffect(() => {
     const checkUploadStatus = async () => {
       if (!open) return;
-      
+
       try {
         setLoading(true);
         const response = await fetch(
@@ -176,7 +176,7 @@ const BookUploadModal: React.FC<BookUploadModalProps> = ({
             <CheckCircleOutlined style={{ fontSize: 48, color: '#45b630' }} />
             <h3 className="text-lg font-medium mt-4">File đã được xử lý thành công</h3>
           </div>
-          
+
           <div className="bg-gray-50 p-6 rounded-lg border-2 border-dashed border-gray-200">
             <div className="flex items-center gap-4">
               <FileWordOutlined className="text-3xl text-[#2B579A]" />
@@ -238,7 +238,7 @@ const BookUploadModal: React.FC<BookUploadModalProps> = ({
                   {formatFileSize(fileList[0].size || 0)}
                 </p>
               </div>
-              <Button 
+              <Button
                 danger
                 onClick={() => setFileList([])}
                 disabled={uploading}

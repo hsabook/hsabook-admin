@@ -85,7 +85,7 @@ const QuestionModal: React.FC<QuestionModalProps> = ({
     try {
       const values = await form.validateFields();
       setUploading(true);
-      
+
       // Handle video upload if needed
       let finalVideoUrl = '';
       if (videoType === 'upload' && videoFileList.length > 0 && videoFileList[0].originFileObj) {
@@ -93,7 +93,7 @@ const QuestionModal: React.FC<QuestionModalProps> = ({
       } else if (videoType === 'embed' && values.embedVideo) {
         finalVideoUrl = values.embedVideo;
       }
-      
+
       // Process answers for single choice questions
       if (questionType === 'AN_ANSWER' && values.answers) {
         values.answers = values.answers.map((answer: any, index: number) => ({
@@ -101,7 +101,7 @@ const QuestionModal: React.FC<QuestionModalProps> = ({
           isCorrect: index === parseInt(correctAnswer || '0')
         }));
       }
-      
+
       // Process answers for multiple choice questions
       if (questionType === 'MULTIPLE_ANSWERS' && values.answers) {
         values.answers = values.answers.map((answer: any, index: number) => ({
@@ -109,14 +109,16 @@ const QuestionModal: React.FC<QuestionModalProps> = ({
           isCorrect: multipleCorrectAnswers.includes(index.toString())
         }));
       }
-      
+
       const formData = {
         ...values,
         videoUrl: finalVideoUrl || undefined,
         active: values.active || false,
         solution: values.solution || '',
       };
-      
+
+      console.log('formData:', formData);
+
       await onSubmit(formData);
       form.resetFields();
       setVideoFileList([]);
@@ -180,7 +182,7 @@ const QuestionModal: React.FC<QuestionModalProps> = ({
   const handleEmbedCodeChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     const code = e.target.value;
     setEmbedCode(code);
-    
+
     // Extract src from iframe if possible
     const srcMatch = code.match(/src=["'](.*?)["']/);
     if (srcMatch && srcMatch[1]) {
@@ -215,7 +217,7 @@ const QuestionModal: React.FC<QuestionModalProps> = ({
       width={800}
       closable={true}
       footer={drawerFooter}
-      footerStyle={{ 
+      footerStyle={{
         borderTop: '1px solid #f0f0f0',
         padding: '10px 24px'
       }}
@@ -225,9 +227,9 @@ const QuestionModal: React.FC<QuestionModalProps> = ({
         form={form}
         layout="vertical"
         initialValues={initialValues || {
-          subject: 'Toan',
+          subject: 'Toán',
           difficulty: 'medium',
-          questionType: Object.keys(QUESTION_TYPE)[0],
+          questionType: Object.values(QUESTION_TYPE)[0],
           active: true,
         }}
         className="mt-4"
@@ -238,10 +240,10 @@ const QuestionModal: React.FC<QuestionModalProps> = ({
             <VideoCameraOutlined className="mr-2 text-[#45b630]" />
             Thêm video minh họa
           </h3>
-          
+
           <div className="grid grid-cols-2 gap-4">
-            <Card 
-              hoverable 
+            <Card
+              hoverable
               className={`cursor-pointer transition-all ${videoType === 'upload' ? 'border-[#45b630] bg-[#f6ffed]' : 'hover:border-[#45b630]'}`}
               onClick={() => handleVideoTypeChange('upload')}
             >
@@ -251,9 +253,9 @@ const QuestionModal: React.FC<QuestionModalProps> = ({
                 <div className="text-xs text-gray-500 mt-1">Tải lên video từ máy tính</div>
               </div>
             </Card>
-            
-            <Card 
-              hoverable 
+
+            <Card
+              hoverable
               className={`cursor-pointer transition-all ${videoType === 'embed' ? 'border-[#45b630] bg-[#f6ffed]' : 'hover:border-[#45b630]'}`}
               onClick={() => handleVideoTypeChange('embed')}
             >
@@ -264,7 +266,7 @@ const QuestionModal: React.FC<QuestionModalProps> = ({
               </div>
             </Card>
           </div>
-          
+
           {videoType === 'upload' && (
             <div className="mt-4 p-4 bg-gray-50 rounded-lg">
               <Upload
@@ -281,14 +283,14 @@ const QuestionModal: React.FC<QuestionModalProps> = ({
               <div className="mt-2 text-xs text-gray-500">
                 Hỗ trợ: MP4, WebM (Tối đa 100MB)
               </div>
-              
+
               {videoUrl && (
                 <div className="mt-4">
                   <h4 className="text-sm font-medium mb-2">Xem trước video:</h4>
                   <div className="relative pt-[56.25%] bg-black rounded overflow-hidden">
-                    <video 
-                      src={videoUrl} 
-                      controls 
+                    <video
+                      src={videoUrl}
+                      controls
                       className="absolute top-0 left-0 w-full h-full"
                     />
                   </div>
@@ -296,11 +298,11 @@ const QuestionModal: React.FC<QuestionModalProps> = ({
               )}
             </div>
           )}
-          
+
           {videoType === 'embed' && (
             <div className="mt-4 p-4 bg-gray-50 rounded-lg">
               <Form.Item name="embedVideo" className="mb-1">
-                <Input.TextArea 
+                <Input.TextArea
                   placeholder="Dán mã nhúng video từ YouTube hoặc các nền tảng khác"
                   rows={3}
                   onChange={handleEmbedCodeChange}
@@ -309,12 +311,12 @@ const QuestionModal: React.FC<QuestionModalProps> = ({
               <div className="text-xs text-gray-500">
                 Ví dụ: <code>&lt;iframe src="https://www.youtube.com/embed/..."&gt;&lt;/iframe&gt;</code>
               </div>
-              
+
               {embedCode && (
                 <div className="mt-4">
                   <h4 className="text-sm font-medium mb-2">Xem trước video:</h4>
                   <div className="relative pt-[56.25%] bg-black rounded overflow-hidden">
-                    <div 
+                    <div
                       className="absolute top-0 left-0 w-full h-full"
                       dangerouslySetInnerHTML={{ __html: embedCode }}
                     />
@@ -347,7 +349,7 @@ const QuestionModal: React.FC<QuestionModalProps> = ({
             placeholder="Chọn môn học"
             options={HighSchoolSubjects.map(subject => ({
               label: subject.title,
-              value: subject.value
+              value: subject.title
             }))}
           />
         </Form.Item>
@@ -437,9 +439,9 @@ const QuestionModal: React.FC<QuestionModalProps> = ({
                           className="min-h-[100px]"
                         />
                       </Form.Item>
-                      <Button 
-                        type="text" 
-                        danger 
+                      <Button
+                        type="text"
+                        danger
                         onClick={() => remove(field.name)}
                         className="ml-2"
                       >
@@ -447,13 +449,13 @@ const QuestionModal: React.FC<QuestionModalProps> = ({
                       </Button>
                     </div>
                   ))}
-                  
+
                   {/* Correct answer selection for single choice */}
                   {fields.length > 0 && (
                     <div className="mb-4 mt-6 bg-gray-50 p-4 rounded-lg">
                       <div className="font-medium mb-2">Chọn đáp án đúng:</div>
-                      <Radio.Group 
-                        onChange={(e) => setCorrectAnswer(e.target.value)} 
+                      <Radio.Group
+                        onChange={(e) => setCorrectAnswer(e.target.value)}
                         value={correctAnswer}
                       >
                         <Space direction="vertical">
@@ -466,12 +468,12 @@ const QuestionModal: React.FC<QuestionModalProps> = ({
                       </Radio.Group>
                     </div>
                   )}
-                  
+
                   <Form.Item>
-                    <Button 
-                      type="dashed" 
-                      onClick={() => add({ content: '' })} 
-                      block 
+                    <Button
+                      type="dashed"
+                      onClick={() => add({ content: '' })}
+                      block
                       icon={<PlusOutlined />}
                     >
                       Thêm đáp án
@@ -508,9 +510,9 @@ const QuestionModal: React.FC<QuestionModalProps> = ({
                           className="min-h-[100px]"
                         />
                       </Form.Item>
-                      <Button 
-                        type="text" 
-                        danger 
+                      <Button
+                        type="text"
+                        danger
                         onClick={() => remove(field.name)}
                         className="ml-2"
                       >
@@ -518,13 +520,13 @@ const QuestionModal: React.FC<QuestionModalProps> = ({
                       </Button>
                     </div>
                   ))}
-                  
+
                   {/* Multiple correct answers selection */}
                   {fields.length > 0 && (
                     <div className="mb-4 mt-6 bg-gray-50 p-4 rounded-lg">
                       <div className="font-medium mb-2">Chọn các đáp án đúng:</div>
-                      <Checkbox.Group 
-                        onChange={handleMultipleAnswerChange} 
+                      <Checkbox.Group
+                        onChange={handleMultipleAnswerChange}
                         value={multipleCorrectAnswers}
                       >
                         <Space direction="vertical" className="w-full">
@@ -537,12 +539,12 @@ const QuestionModal: React.FC<QuestionModalProps> = ({
                       </Checkbox.Group>
                     </div>
                   )}
-                  
+
                   <Form.Item>
-                    <Button 
-                      type="dashed" 
-                      onClick={() => add({ content: '' })} 
-                      block 
+                    <Button
+                      type="dashed"
+                      onClick={() => add({ content: '' })}
+                      block
                       icon={<PlusOutlined />}
                     >
                       Thêm đáp án
