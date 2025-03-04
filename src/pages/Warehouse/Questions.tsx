@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Card, Button, Table, Space, Tag, message, Spin, Switch, Input, Modal, Select, Row, Col, Divider, Tooltip, Badge } from 'antd';
 import { PlusOutlined, EditOutlined, DeleteOutlined, CopyOutlined, SearchOutlined, ExclamationCircleOutlined, ReloadOutlined, InfoCircleOutlined } from '@ant-design/icons';
 import QuestionModal from '../../components/QuestionModal';
-import { getQuestions, deleteQuestion, createQuestion } from '../../api/questions';
+import { getQuestions, deleteQuestion, createQuestion, updateQuestion } from '../../api/questions';
 import type { Question } from '../../api/questions/types';
 import { HighSchoolSubjects, QUESTION_TYPE } from '../../components/QuestionModal/QuestionModal';
 
@@ -194,15 +194,16 @@ const Questions: React.FC = () => {
       title: 'Câu hỏi',
       dataIndex: 'question',
       key: 'question',
+      width: 250,
       render: (text: string) => (
         <Tooltip
           title={<div dangerouslySetInnerHTML={{ __html: text }} />}
           placement="topLeft"
-          overlayStyle={{ maxWidth: '500px' }}
+          overlayStyle={{ maxWidth: '400px' }}
         >
           <div
             dangerouslySetInnerHTML={{ __html: text }}
-            className="line-clamp-2 max-w-md cursor-pointer hover:text-blue-600 transition-colors duration-300"
+            className="line-clamp-1 max-w-[230px] cursor-pointer hover:text-blue-600 transition-colors duration-300"
           />
         </Tooltip>
       ),
@@ -290,8 +291,29 @@ const Questions: React.FC = () => {
               size="small"
               checked={record.active}
               className={record.active ? "bg-[#45b630]" : ""}
-              onChange={(checked) => {
-                message.success(`${checked ? 'Kích hoạt' : 'Vô hiệu hóa'} câu hỏi thành công`);
+              onChange={async (checked) => {
+                try {
+                  setQuestions(prevQuestions =>
+                    prevQuestions.map(q =>
+                      q.id === record.id ? { ...q, active: checked } : q
+                    )
+                  );
+                  updateQuestion(record.id, { active: checked }).then(() => {
+                    message.success(`${checked ? 'Kích hoạt' : 'Vô hiệu hóa'} câu hỏi thành công`);
+                  }).catch((error) => {
+                    setQuestions(prevQuestions =>
+                      prevQuestions.map(q =>
+                        q.id === record.id ? { ...q, active: checked } : q
+                      )
+                    );
+                    console.error('Error updating question status:', error);
+                    message.error(`Không thể ${checked ? 'kích hoạt' : 'vô hiệu hóa'} câu hỏi`);
+                  });
+
+                } catch (error) {
+                  console.error('Error updating question status:', error);
+                  message.error(`Không thể ${checked ? 'kích hoạt' : 'vô hiệu hóa'} câu hỏi`);
+                }
               }}
             />
           </Tooltip>
