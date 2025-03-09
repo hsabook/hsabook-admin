@@ -79,10 +79,12 @@ const QuestionModal: React.FC<QuestionModalProps> = ({
   const [videoUrl, setVideoUrl] = useState<string>('');
   const [embedCode, setEmbedCode] = useState<string>('');
   const [uploading, setUploading] = useState(false);
-  const [questionType, setQuestionType] = useState(initialValues?.questionType || Object.keys(QUESTION_TYPE)[0]);
+  const [questionType, setQuestionType] = useState(initialValues?.questionType || QUESTION_TYPE.AN_ANSWER);
   const [correctAnswer, setCorrectAnswer] = useState<string | null>(null);
   const [multipleCorrectAnswers, setMultipleCorrectAnswers] = useState<string[]>([]);
 
+  // console.log('questionType:', questionType);
+  // console.log('initialValues:', initialValues);
   // Cập nhật form và state khi initialValues thay đổi
   useEffect(() => {
     if (initialValues) {
@@ -100,6 +102,7 @@ const QuestionModal: React.FC<QuestionModalProps> = ({
         answers: initialValues.answers || []
       });
       
+      console.log('initialValues.questionType:', initialValues.questionType);
       // Cập nhật state cho loại câu hỏi
       setQuestionType(initialValues.questionType);
       
@@ -125,12 +128,12 @@ const QuestionModal: React.FC<QuestionModalProps> = ({
       }
       
       // Cập nhật state cho đáp án đúng
-      if (initialValues.questionType === 'AN_ANSWER' && initialValues.answers) {
+      if (initialValues.questionType === QUESTION_TYPE.AN_ANSWER && initialValues.answers) {
         const correctIndex = initialValues.answers.findIndex((answer: any) => answer.isCorrect);
         if (correctIndex >= 0) {
           setCorrectAnswer(correctIndex.toString());
         }
-      } else if (initialValues.questionType === 'MULTIPLE_ANSWERS' && initialValues.answers) {
+      } else if (initialValues.questionType === QUESTION_TYPE.MULTIPLE_ANSWERS && initialValues.answers) {
         const correctIndices = initialValues.answers
           .map((answer: any, index: number) => answer.isCorrect ? index.toString() : null)
           .filter(Boolean);
@@ -139,7 +142,7 @@ const QuestionModal: React.FC<QuestionModalProps> = ({
     } else {
       // Reset form khi không có initialValues
       form.resetFields();
-      setQuestionType(Object.keys(QUESTION_TYPE)[0]);
+      setQuestionType(QUESTION_TYPE.AN_ANSWER);
       setVideoType(null);
       setVideoUrl('');
       setEmbedCode('');
@@ -151,6 +154,7 @@ const QuestionModal: React.FC<QuestionModalProps> = ({
   const handleSubmit = async () => {
     try {
       const values = await form.validateFields();
+      console.log('values:', values);
       setUploading(true);
 
       // Handle video upload if needed
@@ -182,7 +186,7 @@ const QuestionModal: React.FC<QuestionModalProps> = ({
       }
       
       // Process answers for single choice questions
-      if (questionType === 'AN_ANSWER') {
+      if (questionType === QUESTION_TYPE.AN_ANSWER) {
         // If no answers, don't proceed
         if (values.answers.length === 0) {
           message.warning('Vui lòng thêm ít nhất một đáp án');
@@ -190,6 +194,8 @@ const QuestionModal: React.FC<QuestionModalProps> = ({
           return;
         }
         
+
+        console.log('correctAnswer:', correctAnswer);
         // Make sure correctAnswer is set, default to first answer if not specified
         if (correctAnswer === null) {
           setCorrectAnswer('0');
@@ -207,7 +213,7 @@ const QuestionModal: React.FC<QuestionModalProps> = ({
       }
 
       // Process answers for multiple choice questions
-      if (questionType === 'MULTIPLE_ANSWERS') {
+      if (questionType === QUESTION_TYPE.MULTIPLE_ANSWERS) {
         // If no answers, don't proceed
         if (values.answers.length === 0) {
           message.warning('Vui lòng thêm ít nhất một đáp án');
@@ -229,7 +235,7 @@ const QuestionModal: React.FC<QuestionModalProps> = ({
       }
 
       // Process answers for true/false questions
-      if (questionType === 'TRUE_FALSE') {
+      if (questionType === QUESTION_TYPE.TRUE_FALSE) {
         if (!values.correctAnswer) {
           message.warning('Vui lòng chọn đáp án đúng hoặc sai');
           setUploading(false);
@@ -243,7 +249,7 @@ const QuestionModal: React.FC<QuestionModalProps> = ({
       }
 
       // Process answers for text input questions
-      if (questionType === 'ENTER_ANSWER') {
+      if (questionType === QUESTION_TYPE.ENTER_ANSWER) {
         if (!values.correctAnswer) {
           message.warning('Vui lòng nhập đáp án đúng');
           setUploading(false);
@@ -618,7 +624,7 @@ const QuestionModal: React.FC<QuestionModalProps> = ({
         </Form.Item>
 
         {/* Answer Options - Conditional based on question type */}
-        {questionType === 'AN_ANSWER' && (
+        {questionType === QUESTION_TYPE.AN_ANSWER && (
           <div className="border-t pt-4 mt-4">
             <h3 className="text-base font-medium mb-3">Các đáp án</h3>
             <Form.List name="answers">
@@ -689,7 +695,7 @@ const QuestionModal: React.FC<QuestionModalProps> = ({
         )}
 
         {/* Multiple Answers */}
-        {questionType === 'MULTIPLE_ANSWERS' && (
+        {questionType === QUESTION_TYPE.MULTIPLE_ANSWERS && (
           <div className="border-t pt-4 mt-4">
             <h3 className="text-base font-medium mb-3">Các đáp án</h3>
             <Form.List name="answers">
@@ -760,7 +766,7 @@ const QuestionModal: React.FC<QuestionModalProps> = ({
         )}
 
         {/* True/False Answer */}
-        {questionType === 'TRUE_FALSE' && (
+        {questionType === QUESTION_TYPE.TRUE_FALSE && (
           <Form.Item
             name="correctAnswer"
             label="Đáp án đúng"
@@ -776,7 +782,7 @@ const QuestionModal: React.FC<QuestionModalProps> = ({
         )}
 
         {/* Text Answer */}
-        {questionType === 'ENTER_ANSWER' && (
+        {questionType === QUESTION_TYPE.ENTER_ANSWER && (
           <Form.Item
             name="correctAnswer"
             label="Đáp án đúng"
@@ -790,7 +796,7 @@ const QuestionModal: React.FC<QuestionModalProps> = ({
         )}
 
         {/* Reading Comprehension */}
-        {questionType === 'READ_UNDERSTAND' && (
+        {questionType === QUESTION_TYPE.READ_UNDERSTAND && (
           <div className="border-t pt-4 mt-4">
             <Form.Item
               name="readingText"

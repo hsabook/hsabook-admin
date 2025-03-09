@@ -135,7 +135,7 @@ const Questions: React.FC = () => {
       
       console.log('Processing answers:', answersArray);
 
-      if (values.questionType === 'AN_ANSWER') {
+      if (values.questionType === QUESTION_TYPE.AN_ANSWER) {
         // Map answers to options format
         options = answersArray.map((answer: any, index: number) => ({
           checked: answer.isCorrect,
@@ -153,7 +153,7 @@ const Questions: React.FC = () => {
           answers = [getAnswerLetter(0)];
           options[0].checked = true;
         }
-      } else if (values.questionType === 'MULTIPLE_ANSWERS') {
+      } else if (values.questionType === QUESTION_TYPE.MULTIPLE_ANSWERS) {
         // Map answers to options format
         options = answersArray.map((answer: any, index: number) => ({
           checked: answer.isCorrect,
@@ -174,14 +174,6 @@ const Questions: React.FC = () => {
         }
       }
 
-      const questionTypeMap: Record<string, string> = {
-        'AN_ANSWER': 'Lựa chọn một đáp án',
-        'MULTIPLE_ANSWERS': 'Lựa chọn nhiều đáp án',
-        'TRUE_FALSE': 'Đúng/Sai',
-        'ENTER_ANSWER': 'Nhập đáp án',
-        'READ_UNDERSTAND': 'Đọc hiểu'
-      };
-
       const difficultyMap: Record<string, string> = {
         'easy': 'easy',
         'medium': 'normal',
@@ -194,7 +186,7 @@ const Questions: React.FC = () => {
         level: difficultyMap[values.difficulty] || 'normal',
         video: values.video || values.embedVideo || values.videoUrl || '',
         question: values.content || values.question || '',
-        type: questionTypeMap[values.questionType],
+        type: values.questionType,
         solution: values.solution || '',
         options: options.length > 0 ? options : [],
         answers: answers.length > 0 ? answers : []
@@ -398,15 +390,6 @@ const Questions: React.FC = () => {
               type="text"
               icon={<EditOutlined className="text-blue-500" />}
               onClick={() => {
-                // Chuẩn bị dữ liệu cho modal chỉnh sửa
-                const questionTypeMap: Record<string, string> = {
-                  'Lựa chọn một đáp án': 'AN_ANSWER',
-                  'Lựa chọn nhiều đáp án': 'MULTIPLE_ANSWERS',
-                  'Đúng/Sai': 'TRUE_FALSE',
-                  'Nhập đáp án': 'ENTER_ANSWER',
-                  'Đọc hiểu': 'READ_UNDERSTAND'
-                };
-                
                 const difficultyMap: Record<string, string> = {
                   'easy': 'easy',
                   'normal': 'medium',
@@ -426,7 +409,7 @@ const Questions: React.FC = () => {
                     const formattedQuestion = {
                       id: questionData.id,
                       content: questionData.question,
-                      questionType: questionTypeMap[questionData.type] || 'AN_ANSWER',
+                      questionType: questionData.type,
                       difficulty: difficultyMap[questionData.level] || 'medium',
                       subject: questionData.subject,
                       active: questionData.active,
