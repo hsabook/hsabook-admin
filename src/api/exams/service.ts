@@ -144,4 +144,24 @@ export const removeQuestionsFromExam = async (examId: string, questionIds: strin
     console.error(`🔴 ExamsService removeQuestionsFromExam error for exam ${examId}:`, error);
     throw error;
   }
+};
+
+// Add a question to an exam
+export const addQuestionToExam = async (examId: string, questionId: string, score: number | null = null): Promise<any> => {
+  try {
+    const response = await axios.post(`${API_URL}/exams/${examId}/questions`, {
+      question_id: questionId,
+      score: score
+    }, {
+      headers: {
+        'Content-Type': 'application/json',
+        ...getAuthHeaders()
+      }
+    });
+    
+    return response.data;
+  } catch (error) {
+    console.error(`🔴 ExamsService addQuestionToExam error for exam ${examId}, question ${questionId}:`, error);
+    throw error;
+  }
 }; 

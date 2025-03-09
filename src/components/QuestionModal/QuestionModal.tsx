@@ -67,6 +67,7 @@ interface QuestionModalProps {
   zIndex?: number;
   onSuccess?: () => void;
   refreshData?: () => void;
+  onQuestionCreated?: (question: any) => void;
   initialValues?: any;
 }
 
@@ -79,7 +80,8 @@ const QuestionModal: React.FC<QuestionModalProps> = ({
   zIndex,
   initialValues,
   onSuccess,
-  refreshData
+  refreshData,
+  onQuestionCreated
 }) => {
   const [form] = Form.useForm();
   const [videoType, setVideoType] = useState<'upload' | 'embed' | null>(null);
@@ -437,7 +439,7 @@ const QuestionModal: React.FC<QuestionModalProps> = ({
         
         try {
           // Create new question
-          await createQuestion(payload);
+          const newQuestion = await createQuestion(payload);
           loadingMessage();
           message.success('Thêm câu hỏi mới thành công');
           
@@ -449,6 +451,11 @@ const QuestionModal: React.FC<QuestionModalProps> = ({
           // Refresh data if needed
           if (refreshData) {
             refreshData();
+          }
+          
+          // Call onQuestionCreated callback if provided
+          if (onQuestionCreated && newQuestion) {
+            onQuestionCreated(newQuestion);
           }
           
           // Close modal
