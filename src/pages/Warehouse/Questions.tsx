@@ -28,7 +28,6 @@ const Questions: React.FC = () => {
   });
   const [viewingQuestion, setViewingQuestion] = useState<any>(null);
   const [isViewModalOpen, setIsViewModalOpen] = useState(false);
-  const viewModalRef = useRef<any>(null);
 
   const fetchQuestions = async (page = 1, pageSize = 10, _params: any = {
     code_id: undefined,
@@ -681,7 +680,7 @@ const Questions: React.FC = () => {
                                     : 'bg-gray-50'
                                 }`}
                               >
-                                <div className="mr-2 mt-1">
+                                <div className="mr-2">
                                   {viewingQuestion.answers.includes(option.type) ? (
                                     <Badge status="success" />
                                   ) : (

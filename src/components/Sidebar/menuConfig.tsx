@@ -1,13 +1,9 @@
-import React from 'react';
 import { 
   DashboardOutlined,
   BookOutlined,
   UserOutlined,
   InboxOutlined,
   SettingOutlined,
-  LinkOutlined,
-  PictureOutlined,
-  CommentOutlined
 } from '@ant-design/icons';
 
 const iconStyle = { fontSize: '20px' };

@@ -1,7 +1,7 @@
 import { api } from '../../utils/api';
-import type { CreateBookPayload, UpdateBookPayload, Book } from './types';
+import type { UpdateBookPayload } from './types';
 
-export const getBooks = async (params: GetBooksParams): Promise<BooksResponse> => {
+export const getBooks = async (params: any): Promise<any> => {
   const queryParams = new URLSearchParams();
   Object.entries(params).forEach(([key, value]) => {
     if (value) queryParams.append(key, value.toString());
@@ -10,7 +10,7 @@ export const getBooks = async (params: GetBooksParams): Promise<BooksResponse> =
   return await api(`/books?${queryParams.toString()}`);
 };
 
-export const createBook = async (payload: CreateBookPayload): Promise<Book> => {
+export const createBook = async (payload: any): Promise<any> => {
   const result = await api('/books', {
     method: 'POST',
     body: JSON.stringify(payload),

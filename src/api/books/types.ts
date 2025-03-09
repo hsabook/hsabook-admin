@@ -43,5 +43,3 @@ export interface UpdateBookPayload {
   publishing_house?: string;
   subject?: string;
 }
-
-// Rest of the existing types...
