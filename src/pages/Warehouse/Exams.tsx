@@ -580,7 +580,7 @@ const Exams: React.FC = () => {
 
       const answersArray = Array.isArray(values.answers) ? values.answers : [];
 
-      if (values.questionType === 'AN_ANSWER') {
+      if (values.questionType === QUESTION_TYPE.AN_ANSWER) {
         // Validate that at least one answer is selected as correct
         const correctIndex = answersArray.findIndex((a: any) => a.isCorrect);
         if (correctIndex < 0 && answersArray.length > 0) {
@@ -599,7 +599,7 @@ const Exams: React.FC = () => {
         if (correctIndex >= 0) {
           answers = [getAnswerLetter(correctIndex)];
         }
-      } else if (values.questionType === 'MULTIPLE_ANSWERS') {
+      } else if (values.questionType === QUESTION_TYPE.MULTIPLE_ANSWERS) {
         // Validate that at least one answer is selected as correct for multiple choice
         const correctAnswers = answersArray.filter((a: any) => a.isCorrect);
         if (correctAnswers.length === 0 && answersArray.length > 0) {
@@ -620,14 +620,6 @@ const Exams: React.FC = () => {
           .filter(Boolean);
       }
 
-      const questionTypeMap: Record<string, string> = {
-        'AN_ANSWER': 'Lựa chọn một đáp án',
-        'MULTIPLE_ANSWERS': 'Lựa chọn nhiều đáp án',
-        'TRUE_FALSE': 'Đúng/Sai',
-        'ENTER_ANSWER': 'Nhập đáp án',
-        'READ_UNDERSTAND': 'Đọc hiểu'
-      };
-
       const difficultyMap: Record<string, string> = {
         'easy': 'easy',
         'medium': 'normal',
@@ -640,7 +632,7 @@ const Exams: React.FC = () => {
         level: difficultyMap[values.difficulty] || 'normal',
         video: values.embedVideo || values.videoUrl || '',
         question: values.content,
-        type: questionTypeMap[values.questionType],
+        type: values.questionType,
         solution: values.solution || '',
         options: options.length > 0 ? options : [],
         answers: answers.length > 0 ? answers : []

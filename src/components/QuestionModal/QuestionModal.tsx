@@ -1,9 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { Drawer, Form, Input, Select, Switch, Button, Space, Upload, message, Radio, Checkbox, Card } from 'antd';
-import { UploadOutlined, CodeOutlined, PlusOutlined, VideoCameraOutlined, YoutubeOutlined } from '@ant-design/icons';
+import { Drawer, Form, Input, Select, Switch, Button, Space, Upload, message, Radio, Checkbox, Card, Tabs, Tooltip } from 'antd';
+import { UploadOutlined, CodeOutlined, PlusOutlined, VideoCameraOutlined, YoutubeOutlined, MinusCircleOutlined, InfoCircleOutlined } from '@ant-design/icons';
 import RichTextEditor from '../../components/RichTextEditor';
 import type { UploadFile } from 'antd/es/upload/interface';
 import { uploadFile } from '../../api/upload';
+import { createQuestion, updateQuestion } from '../../api/questions';
+import { api } from '../../utils/api';
 
 // Constants for question types and subjects
 export const QUESTION_TYPE = {
@@ -59,19 +61,25 @@ const QUESTION_SETS = [
 interface QuestionModalProps {
   open: boolean;
   onCancel: () => void;
-  onSubmit: (values: any) => void;
-  initialValues?: any;
+  onSubmit?: (values: any) => void;
+  questionId?: string;
   title?: string;
   zIndex?: number;
+  onSuccess?: () => void;
+  refreshData?: () => void;
+  initialValues?: any;
 }
 
 const QuestionModal: React.FC<QuestionModalProps> = ({
   open,
   onCancel,
   onSubmit,
-  initialValues,
+  questionId,
   title = 'Thêm mới câu hỏi',
-  zIndex
+  zIndex,
+  initialValues,
+  onSuccess,
+  refreshData
 }) => {
   const [form] = Form.useForm();
   const [videoType, setVideoType] = useState<'upload' | 'embed' | null>(null);
@@ -82,102 +90,167 @@ const QuestionModal: React.FC<QuestionModalProps> = ({
   const [questionType, setQuestionType] = useState(initialValues?.questionType || QUESTION_TYPE.AN_ANSWER);
   const [correctAnswer, setCorrectAnswer] = useState<string | null>(null);
   const [multipleCorrectAnswers, setMultipleCorrectAnswers] = useState<string[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [questionData, setQuestionData] = useState<any>(initialValues);
 
-  // console.log('questionType:', questionType);
-  // console.log('initialValues:', initialValues);
-  // Cập nhật form và state khi initialValues thay đổi
+  // Fetch question data when questionId changes
   useEffect(() => {
-    if (initialValues) {
-      console.log('Initializing form with values:', initialValues);
+    if (open && questionId) {
+      fetchQuestionData(questionId);
+    } else if (open && !questionId) {
+      // Reset form and states when opening modal for new question
+      resetForm();
+    }
+  }, [questionId, open]);
+
+  // Reset form and states
+  const resetForm = () => {
+    form.resetFields();
+    setQuestionData(null);
+    setQuestionType(QUESTION_TYPE.AN_ANSWER);
+    setVideoType(null);
+    setVideoUrl('');
+    setEmbedCode('');
+    setCorrectAnswer(null);
+    setMultipleCorrectAnswers([]);
+    setVideoFileList([]);
+  };
+
+  // Fetch question data from API
+  const fetchQuestionData = async (id: string) => {
+    setLoading(true);
+    // Show loading message
+    const loadingMessage = message.loading('Đang tải thông tin câu hỏi...', 0);
+    
+    try {
+      // Call API to get question details
+      const response = await api(`/questions/${id}`);
+      loadingMessage();
+      const data = response.data;
+      
+      // Map difficulty levels
+      const difficultyMap: Record<string, string> = {
+        'easy': 'easy',
+        'normal': 'medium',
+        'hard': 'hard'
+      };
+      
+      // Format question data for form
+      const formattedQuestion = {
+        id: data.id,
+        content: data.question,
+        questionType: data.type,
+        difficulty: difficultyMap[data.level] || 'medium',
+        subject: data.subject,
+        active: data.active,
+        solution: data.solution || '',
+        embedVideo: data.video || '',
+        answers: Array.isArray(data.options) 
+          ? data.options.map((option: any, index: number) => ({
+              content: option.answer,
+              isCorrect: data.answers.includes(option.type)
+            }))
+          : []
+      };
+      
+      console.log('Formatted question for editing:', formattedQuestion);
+      
+      // Set question data
+      setQuestionData(formattedQuestion);
+    } catch (error) {
+      loadingMessage();
+      console.error('Error fetching question details:', error);
+      message.error('Không thể tải thông tin chi tiết của câu hỏi');
+      onCancel(); // Close modal on error
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Update form and state when questionData changes
+  useEffect(() => {
+    if (open && questionData) {
+      console.log('Initializing form with values:', questionData);
       
       // Cập nhật form
       form.setFieldsValue({
-        ...initialValues,
-        content: initialValues.content || initialValues.question,
-        subject: initialValues.subject,
-        difficulty: initialValues.difficulty,
-        questionType: initialValues.questionType,
-        active: initialValues.active,
-        solution: initialValues.solution,
-        answers: initialValues.answers || []
+        ...questionData,
+        content: questionData.content || questionData.question,
+        subject: questionData.subject,
+        difficulty: questionData.difficulty,
+        questionType: questionData.questionType,
+        active: questionData.active,
+        solution: questionData.solution,
+        answers: questionData.answers || []
       });
       
-      console.log('initialValues.questionType:', initialValues.questionType);
+      console.log('questionData.questionType:', questionData.questionType);
       // Cập nhật state cho loại câu hỏi
-      setQuestionType(initialValues.questionType);
+      setQuestionType(questionData.questionType);
       
       // Cập nhật state cho video
-      if (initialValues.embedVideo) {
+      if (questionData.embedVideo) {
         // Kiểm tra nếu là mã nhúng iframe
-        if (initialValues.embedVideo.includes('<iframe')) {
+        if (questionData.embedVideo.includes('<iframe')) {
           setVideoType('embed');
-          setEmbedCode(initialValues.embedVideo);
-          form.setFieldsValue({ embedVideo: initialValues.embedVideo });
-        } else if (initialValues.embedVideo.startsWith('https') && /\.(mp4|mov|webm|ogg)$/i.test(initialValues.embedVideo)) {
+          setEmbedCode(questionData.embedVideo);
+          form.setFieldsValue({ embedVideo: questionData.embedVideo });
+        } else if (questionData.embedVideo.startsWith('https') && /\.(mp4|mov|webm|ogg)$/i.test(questionData.embedVideo)) {
           // Nếu là URL trực tiếp đến file video, chuyển sang tab Upload
           setVideoType('upload');
-          setVideoUrl(initialValues.embedVideo);
+          setVideoUrl(questionData.embedVideo);
           // Lưu trữ URL video để sử dụng khi chuyển đổi loại video
-          form.setFieldsValue({ videoUrl: initialValues.embedVideo });
+          form.setFieldsValue({ videoUrl: questionData.embedVideo });
         }
-      } else if (initialValues.videoUrl) {
+      } else if (questionData.videoUrl) {
         setVideoType('upload');
-        setVideoUrl(initialValues.videoUrl);
+        setVideoUrl(questionData.videoUrl);
         // Lưu trữ URL video để sử dụng khi chuyển đổi loại video
-        form.setFieldsValue({ videoUrl: initialValues.videoUrl });
+        form.setFieldsValue({ videoUrl: questionData.videoUrl });
       }
       
       // Cập nhật state cho đáp án đúng
-      if (initialValues.questionType === QUESTION_TYPE.AN_ANSWER && initialValues.answers) {
-        const correctIndex = initialValues.answers.findIndex((answer: any) => answer.isCorrect);
+      if (questionData.questionType === QUESTION_TYPE.AN_ANSWER && questionData.answers) {
+        const correctIndex = questionData.answers.findIndex((answer: any) => answer.isCorrect);
         if (correctIndex >= 0) {
           setCorrectAnswer(correctIndex.toString());
         }
-      } else if (initialValues.questionType === QUESTION_TYPE.MULTIPLE_ANSWERS && initialValues.answers) {
-        const correctIndices = initialValues.answers
+      } else if (questionData.questionType === QUESTION_TYPE.MULTIPLE_ANSWERS && questionData.answers) {
+        const correctIndices = questionData.answers
           .map((answer: any, index: number) => answer.isCorrect ? index.toString() : null)
           .filter(Boolean);
         setMultipleCorrectAnswers(correctIndices);
       }
-    } else {
-      // Reset form khi không có initialValues
-      form.resetFields();
-      setQuestionType(QUESTION_TYPE.AN_ANSWER);
-      setVideoType(null);
-      setVideoUrl('');
-      setEmbedCode('');
-      setCorrectAnswer(null);
-      setMultipleCorrectAnswers([]);
     }
-  }, [initialValues, form, open]);
+  }, [questionData, form, open]);
 
   const handleSubmit = async () => {
     try {
       const values = await form.validateFields();
-      console.log('values:', values);
+      console.log('Form values:', values);
       setUploading(true);
 
       // Handle video upload if needed
       let finalVideoUrl = '';
       if (videoType === 'upload') {
         if (videoFileList.length > 0 && videoFileList[0].originFileObj) {
-          // Nếu có file upload
+          // If there's an uploaded file
           finalVideoUrl = await uploadFile(videoFileList[0].originFileObj);
         } else if (videoUrl && videoUrl.startsWith('https')) {
-          // Nếu là URL trực tiếp đã được nhập
+          // If it's a direct URL that has been entered
           finalVideoUrl = videoUrl;
         }
       } else if (videoType === 'embed') {
-        // Nếu là mã nhúng iframe
+        // If it's an iframe embed code
         if (values.embedVideo && values.embedVideo.includes('<iframe')) {
           finalVideoUrl = values.embedVideo;
         }
-      } else if (initialValues && initialValues.videoUrl) {
-        // Giữ lại URL video cũ nếu không có thay đổi
-        finalVideoUrl = initialValues.videoUrl;
-      } else if (initialValues && initialValues.embedVideo) {
-        // Giữ lại mã nhúng video cũ nếu không có thay đổi
-        finalVideoUrl = initialValues.embedVideo;
+      } else if (questionData && questionData.videoUrl) {
+        // Keep old video URL if no changes
+        finalVideoUrl = questionData.videoUrl;
+      } else if (questionData && questionData.embedVideo) {
+        // Keep old embed code if no changes
+        finalVideoUrl = questionData.embedVideo;
       }
 
       // Ensure answers array exists and initialize with empty array if not
@@ -194,7 +267,6 @@ const QuestionModal: React.FC<QuestionModalProps> = ({
           return;
         }
         
-
         console.log('correctAnswer:', correctAnswer);
         // Make sure correctAnswer is set, default to first answer if not specified
         if (correctAnswer === null) {
@@ -261,31 +333,134 @@ const QuestionModal: React.FC<QuestionModalProps> = ({
         ];
       }
 
-      // Add videoUrl and embedVideo for compatibility with Questions.tsx
-      const formData = {
-        ...values,
-        videoUrl: finalVideoUrl || '',
-        embedVideo: finalVideoUrl || '',
-        video: finalVideoUrl || '',
-        question: values.content || '',
-        active: values.active !== undefined ? values.active : true,
-        solution: values.solution || '',
+      // Format data for API submission
+      const getAnswerLetter = (index: number) => String.fromCharCode(65 + index);
+      let options: any[] = [];
+      let answers: string[] = [];
+      
+      // Ensure answers array exists
+      const answersArray = Array.isArray(values.answers) ? values.answers : [];
+      
+      console.log('Processing answers:', answersArray);
+
+      if (values.questionType === QUESTION_TYPE.AN_ANSWER) {
+        // Map answers to options format
+        options = answersArray.map((answer: any, index: number) => ({
+          checked: answer.isCorrect,
+          answer: answer.content,
+          value: answer.content,
+          type: getAnswerLetter(index)
+        }));
+
+        // Find the correct answer index
+        const correctIndex = answersArray.findIndex((a: any) => a.isCorrect);
+        if (correctIndex >= 0) {
+          answers = [getAnswerLetter(correctIndex)];
+        } else if (answersArray.length > 0) {
+          // Default to first answer if none marked as correct
+          answers = [getAnswerLetter(0)];
+          options[0].checked = true;
+        }
+      } else if (values.questionType === QUESTION_TYPE.MULTIPLE_ANSWERS) {
+        // Map answers to options format
+        options = answersArray.map((answer: any, index: number) => ({
+          checked: answer.isCorrect,
+          answer: answer.content,
+          value: answer.content,
+          type: getAnswerLetter(index)
+        }));
+
+        // Get all correct answers
+        answers = answersArray
+          .map((answer: any, index: number) => answer.isCorrect ? getAnswerLetter(index) : null)
+          .filter(Boolean);
+        
+        // If no correct answers, default to first
+        if (answers.length === 0 && answersArray.length > 0) {
+          answers = [getAnswerLetter(0)];
+          options[0].checked = true;
+        }
+      }
+
+      const difficultyMap: Record<string, string> = {
+        'easy': 'easy',
+        'medium': 'normal',
+        'hard': 'hard'
       };
 
-      // Log the data being submitted for debugging
-      console.log('Submitting formData:', formData);
+      // Create final payload for API
+      const payload = {
+        active: values.active !== undefined ? values.active : true,
+        subject: values.subject,
+        level: difficultyMap[values.difficulty] || 'normal',
+        video: finalVideoUrl || '',
+        question: values.content || values.question || '',
+        type: values.questionType,
+        solution: values.solution || '',
+        options: options.length > 0 ? options : [],
+        answers: answers.length > 0 ? answers : []
+      };
 
-      await onSubmit(formData);
-      
-      // Chỉ reset form khi không phải đang chỉnh sửa
-      if (!initialValues) {
-        form.resetFields();
-        setVideoFileList([]);
-        setVideoUrl('');
-        setEmbedCode('');
-        setVideoType(null);
-        setCorrectAnswer(null);
-        setMultipleCorrectAnswers([]);
+      console.log('Payload for submission:', payload);
+
+      // Handle API calls
+      if (questionData?.id) {
+        // Show loading message
+        const loadingMessage = message.loading('Đang cập nhật câu hỏi...', 0);
+        
+        try {
+          // Update existing question
+          await updateQuestion(questionData.id, payload);
+          loadingMessage();
+          message.success('Cập nhật câu hỏi thành công');
+          
+          // Call success callback if provided
+          if (onSuccess) {
+            onSuccess();
+          }
+          
+          // Refresh data if needed
+          if (refreshData) {
+            refreshData();
+          }
+          
+          // Close modal
+          onCancel();
+        } catch (error) {
+          loadingMessage();
+          console.error('Error updating question:', error);
+          message.error(`Không thể cập nhật câu hỏi: ${(error as any)?.message || 'Lỗi không xác định'}`);
+        }
+      } else {
+        // Show loading message
+        const loadingMessage = message.loading('Đang tạo câu hỏi mới...', 0);
+        
+        try {
+          // Create new question
+          await createQuestion(payload);
+          loadingMessage();
+          message.success('Thêm câu hỏi mới thành công');
+          
+          // Call success callback if provided
+          if (onSuccess) {
+            onSuccess();
+          }
+          
+          // Refresh data if needed
+          if (refreshData) {
+            refreshData();
+          }
+          
+          // Close modal
+          onCancel();
+          
+          // Reset form
+          resetForm();
+        } catch (error) {
+          loadingMessage();
+          console.error('Error creating question:', error);
+          message.error(`Không thể tạo câu hỏi: ${(error as any)?.message || 'Lỗi không xác định'}`);
+        }
       }
     } catch (error) {
       console.error('Validation failed:', error);
@@ -298,7 +473,7 @@ const QuestionModal: React.FC<QuestionModalProps> = ({
     setVideoType(type);
     
     // Chỉ xóa dữ liệu khi không phải đang chỉnh sửa câu hỏi
-    if (!initialValues) {
+    if (!questionData) {
       if (type !== 'upload') {
         setVideoUrl('');
         setVideoFileList([]);
@@ -309,11 +484,11 @@ const QuestionModal: React.FC<QuestionModalProps> = ({
     } else {
       // Nếu đang chỉnh sửa câu hỏi, giữ lại dữ liệu video
       // Chỉ cập nhật loại video mà không xóa dữ liệu
-      if (type === 'upload' && !videoUrl && initialValues.videoUrl) {
-        setVideoUrl(initialValues.videoUrl);
-      } else if (type === 'embed' && !embedCode && initialValues.embedVideo) {
-        setEmbedCode(initialValues.embedVideo);
-        form.setFieldsValue({ embedVideo: initialValues.embedVideo });
+      if (type === 'upload' && !videoUrl && questionData.videoUrl) {
+        setVideoUrl(questionData.videoUrl);
+      } else if (type === 'embed' && !embedCode && questionData.embedVideo) {
+        setEmbedCode(questionData.embedVideo);
+        form.setFieldsValue({ embedVideo: questionData.embedVideo });
       }
     }
   };
@@ -427,12 +602,6 @@ const QuestionModal: React.FC<QuestionModalProps> = ({
       <Form
         form={form}
         layout="vertical"
-        initialValues={initialValues || {
-          subject: 'Toán',
-          difficulty: 'medium',
-          questionType: Object.values(QUESTION_TYPE)[0],
-          active: true,
-        }}
         className="mt-4"
       >
         {/* Video Upload Section */}
@@ -594,7 +763,7 @@ const QuestionModal: React.FC<QuestionModalProps> = ({
             placeholder="Chọn loại câu hỏi"
             options={Object.entries(QUESTION_TYPE).map(([key, value]) => ({
               label: value,
-              value: key
+              value: value
             }))}
             onChange={handleQuestionTypeChange}
           />

@@ -12,7 +12,7 @@ const { confirm } = Modal;
 
 const Questions: React.FC = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [editingQuestion, setEditingQuestion] = useState<any>(null);
+  const [editingQuestionId, setEditingQuestionId] = useState<string | null>(null);
   const [questions, setQuestions] = useState<Question[]>([]);
   const [loading, setLoading] = useState(false);
   const [_, setSubmitting] = useState(false);
@@ -83,23 +83,28 @@ const Questions: React.FC = () => {
   };
 
   const handleAddQuestion = () => {
-    setEditingQuestion(null);
+    setEditingQuestionId(null);
+    setIsModalOpen(true);
+  };
+
+  const handleEditQuestion = (id: string) => {
+    setEditingQuestionId(id);
     setIsModalOpen(true);
   };
 
   const showDeleteConfirm = (record: Question) => {
     confirm({
-      title: 'Xác nhận xóa câu hỏi',
+      title: 'Bạn có chắc chắn muốn xóa câu hỏi này?',
       icon: <ExclamationCircleOutlined />,
-      content: 'Bạn có chắc chắn muốn xóa câu hỏi này không?',
+      content: 'Dữ liệu sẽ không thể khôi phục sau khi xóa.',
       okText: 'Xóa',
       okType: 'danger',
       cancelText: 'Hủy',
       onOk: async () => {
         try {
           await deleteQuestion(record.id);
-          fetchQuestions(pagination.current, pagination.pageSize);
           message.success('Xóa câu hỏi thành công');
+          fetchQuestions(pagination.current, pagination.pageSize);
         } catch (error) {
           console.error('Error deleting question:', error);
           message.error('Không thể xóa câu hỏi');
@@ -119,117 +124,6 @@ const Questions: React.FC = () => {
     setSelectedType(undefined);
     setSelectedStatus(undefined);
     fetchQuestions(1, pagination.pageSize);
-  };
-
-  const handleSubmitQuestion = async (values: any) => {
-    try {
-      setSubmitting(true);
-
-      const getAnswerLetter = (index: number) => String.fromCharCode(65 + index);
-
-      let options: any[] = [];
-      let answers: string[] = [];
-
-      // Ensure answers array exists
-      const answersArray = Array.isArray(values.answers) ? values.answers : [];
-      
-      console.log('Processing answers:', answersArray);
-
-      if (values.questionType === QUESTION_TYPE.AN_ANSWER) {
-        // Map answers to options format
-        options = answersArray.map((answer: any, index: number) => ({
-          checked: answer.isCorrect,
-          answer: answer.content,
-          value: answer.content,
-          type: getAnswerLetter(index)
-        }));
-
-        // Find the correct answer index
-        const correctIndex = answersArray.findIndex((a: any) => a.isCorrect);
-        if (correctIndex >= 0) {
-          answers = [getAnswerLetter(correctIndex)];
-        } else if (answersArray.length > 0) {
-          // Default to first answer if none marked as correct
-          answers = [getAnswerLetter(0)];
-          options[0].checked = true;
-        }
-      } else if (values.questionType === QUESTION_TYPE.MULTIPLE_ANSWERS) {
-        // Map answers to options format
-        options = answersArray.map((answer: any, index: number) => ({
-          checked: answer.isCorrect,
-          answer: answer.content,
-          value: answer.content,
-          type: getAnswerLetter(index)
-        }));
-
-        // Get all correct answers
-        answers = answersArray
-          .map((answer: any, index: number) => answer.isCorrect ? getAnswerLetter(index) : null)
-          .filter(Boolean);
-        
-        // If no correct answers, default to first
-        if (answers.length === 0 && answersArray.length > 0) {
-          answers = [getAnswerLetter(0)];
-          options[0].checked = true;
-        }
-      }
-
-      const difficultyMap: Record<string, string> = {
-        'easy': 'easy',
-        'medium': 'normal',
-        'hard': 'hard'
-      };
-
-      const payload = {
-        active: values.active !== undefined ? values.active : true,
-        subject: values.subject,
-        level: difficultyMap[values.difficulty] || 'normal',
-        video: values.video || values.embedVideo || values.videoUrl || '',
-        question: values.content || values.question || '',
-        type: values.questionType,
-        solution: values.solution || '',
-        options: options.length > 0 ? options : [],
-        answers: answers.length > 0 ? answers : []
-      };
-
-      console.log('Payload for submission:', payload);
-
-      // Hiển thị loading message
-      const loadingMessage = message.loading(
-        editingQuestion ? 'Đang cập nhật câu hỏi...' : 'Đang tạo câu hỏi mới...', 
-        0
-      );
-
-      try {
-        if (editingQuestion) {
-          // Cập nhật câu hỏi
-          await updateQuestion(editingQuestion.id, payload);
-          loadingMessage();
-          message.success('Cập nhật câu hỏi thành công');
-        } else {
-          // Tạo mới câu hỏi
-          await createQuestion(payload);
-          loadingMessage();
-          message.success('Thêm câu hỏi mới thành công');
-        }
-        
-        setIsModalOpen(false);
-        setEditingQuestion(null);
-        fetchQuestions(pagination.current, pagination.pageSize);
-      } catch (error) {
-        loadingMessage();
-        console.error('Error submitting question:', error);
-        message.error(editingQuestion 
-          ? `Không thể cập nhật câu hỏi: ${(error as any)?.message || 'Lỗi không xác định'}` 
-          : `Không thể tạo câu hỏi: ${(error as any)?.message || 'Lỗi không xác định'}`
-        );
-      }
-    } catch (validationError) {
-      console.error('Validation failed:', validationError);
-      message.error('Vui lòng kiểm tra lại thông tin câu hỏi');
-    } finally {
-      setSubmitting(false);
-    }
   };
 
   const columns = [
@@ -389,51 +283,7 @@ const Questions: React.FC = () => {
             <Button
               type="text"
               icon={<EditOutlined className="text-blue-500" />}
-              onClick={() => {
-                const difficultyMap: Record<string, string> = {
-                  'easy': 'easy',
-                  'normal': 'medium',
-                  'hard': 'hard'
-                };
-                
-                // Hiển thị loading message
-                const loadingMessage = message.loading('Đang tải thông tin câu hỏi...', 0);
-                
-                // Gọi API để lấy thông tin chi tiết của câu hỏi
-                api(`/questions/${record.id}`)
-                  .then((response) => {
-                    loadingMessage();
-                    const questionData = response.data;
-                    
-                    // Chuyển đổi dữ liệu từ API sang định dạng form
-                    const formattedQuestion = {
-                      id: questionData.id,
-                      content: questionData.question,
-                      questionType: questionData.type,
-                      difficulty: difficultyMap[questionData.level] || 'medium',
-                      subject: questionData.subject,
-                      active: questionData.active,
-                      solution: questionData.solution || '',
-                      embedVideo: questionData.video || '',
-                      answers: Array.isArray(questionData.options) 
-                        ? questionData.options.map((option: any, index: number) => ({
-                            content: option.answer,
-                            isCorrect: questionData.answers.includes(option.type)
-                          }))
-                        : []
-                    };
-                    
-                    console.log('Formatted question for editing:', formattedQuestion);
-                    
-                    setEditingQuestion(formattedQuestion);
-                    setIsModalOpen(true);
-                  })
-                  .catch((error) => {
-                    loadingMessage();
-                    console.error('Error fetching question details:', error);
-                    message.error('Không thể tải thông tin chi tiết của câu hỏi');
-                  });
-              }}
+              onClick={() => handleEditQuestion(record.id)}
               className="hover:bg-blue-50 transition-colors duration-300"
             />
           </Tooltip>
@@ -589,11 +439,15 @@ const Questions: React.FC = () => {
         open={isModalOpen}
         onCancel={() => {
           setIsModalOpen(false);
-          setEditingQuestion(null);
+          setEditingQuestionId(null);
         }}
-        onSubmit={handleSubmitQuestion}
-        initialValues={editingQuestion}
-        title={editingQuestion ? 'Chỉnh sửa câu hỏi' : 'Thêm mới câu hỏi'}
+        questionId={editingQuestionId || undefined}
+        title={editingQuestionId ? 'Chỉnh sửa câu hỏi' : 'Thêm mới câu hỏi'}
+        refreshData={() => fetchQuestions(pagination.current, pagination.pageSize)}
+        onSuccess={() => {
+          setIsModalOpen(false);
+          setEditingQuestionId(null);
+        }}
       />
 
       <Modal
