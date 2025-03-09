@@ -22,6 +22,7 @@ import axios from 'axios';
 import { useAuthStore } from '../../store/authStore';
 import QuestionDetail from '../../components/QuestionDetail';
 import QuestionContent from '../../components/QuestionDetail/QuestionContent';
+import { removeQuestionsFromExam } from '../../api/exams/service';
 
 // Define interfaces for question detail
 interface QuestionOption {
@@ -723,6 +724,32 @@ const Exams: React.FC = () => {
     setSelectedQuestion(null);
   };
 
+  // Handle remove question from exam
+  const handleRemoveQuestion = async (examId: string, questionId: string) => {
+    try {
+      setDetailLoading(true);
+      
+      // Call API to remove question from exam using the service function
+      const response = await removeQuestionsFromExam(examId, [questionId]);
+      
+      if (response && response.status_code === 200) {
+        message.success('Đã xóa câu hỏi khỏi bộ đề');
+        
+        // Refresh exam detail to update the question list
+        if (selectedExamDetail) {
+          fetchExamDetail(examId);
+        }
+      } else {
+        message.error('Không thể xóa câu hỏi khỏi bộ đề');
+      }
+    } catch (error) {
+      console.error('🔴 Exams handleRemoveQuestion error:', error);
+      message.error('Không thể xóa câu hỏi khỏi bộ đề');
+    } finally {
+      setDetailLoading(false);
+    }
+  };
+
   return (
     <>
       <Card title="Bộ đề" className="h-full">
@@ -1318,8 +1345,8 @@ const Exams: React.FC = () => {
                                 okType: 'danger',
                                 cancelText: 'Hủy',
                                 onOk() {
-                                  // Handle remove question
-                                  message.success('Đã xóa câu hỏi khỏi bộ đề');
+                                  // Call the function to remove question
+                                  handleRemoveQuestion(selectedExamDetail.id, record.question_id);
                                 },
                               });
                             }}

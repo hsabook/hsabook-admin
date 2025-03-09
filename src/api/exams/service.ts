@@ -123,4 +123,24 @@ export const importExams = async (file: File): Promise<ExamsResponse> => {
     console.error('🔴 ExamsService importExams error:', error);
     throw error;
   }
+};
+
+// Remove questions from an exam
+export const removeQuestionsFromExam = async (examId: string, questionIds: string[]): Promise<any> => {
+  try {
+    const response = await axios.delete(`${API_URL}/exams/${examId}/question-ids`, {
+      headers: {
+        'Content-Type': 'application/json',
+        ...getAuthHeaders()
+      },
+      data: {
+        ids: questionIds
+      }
+    });
+    
+    return response.data;
+  } catch (error) {
+    console.error(`🔴 ExamsService removeQuestionsFromExam error for exam ${examId}:`, error);
+    throw error;
+  }
 }; 
