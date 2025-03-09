@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Card, Button, Table, Space, Tag, message, Spin, Switch, Input, Modal, Select, Row, Col, Divider, Tooltip, Badge, Tabs } from 'antd';
 import { PlusOutlined, EditOutlined, DeleteOutlined, CopyOutlined, SearchOutlined, ExclamationCircleOutlined, ReloadOutlined, InfoCircleOutlined } from '@ant-design/icons';
 import QuestionModal from '../../components/QuestionModal';
@@ -130,9 +130,13 @@ const Questions: React.FC = () => {
       let options: any[] = [];
       let answers: string[] = [];
 
+      // Ensure answers array exists
       const answersArray = Array.isArray(values.answers) ? values.answers : [];
+      
+      console.log('Processing answers:', answersArray);
 
       if (values.questionType === 'AN_ANSWER') {
+        // Map answers to options format
         options = answersArray.map((answer: any, index: number) => ({
           checked: answer.isCorrect,
           answer: answer.content,
@@ -140,11 +144,17 @@ const Questions: React.FC = () => {
           type: getAnswerLetter(index)
         }));
 
+        // Find the correct answer index
         const correctIndex = answersArray.findIndex((a: any) => a.isCorrect);
         if (correctIndex >= 0) {
           answers = [getAnswerLetter(correctIndex)];
+        } else if (answersArray.length > 0) {
+          // Default to first answer if none marked as correct
+          answers = [getAnswerLetter(0)];
+          options[0].checked = true;
         }
       } else if (values.questionType === 'MULTIPLE_ANSWERS') {
+        // Map answers to options format
         options = answersArray.map((answer: any, index: number) => ({
           checked: answer.isCorrect,
           answer: answer.content,
@@ -152,9 +162,16 @@ const Questions: React.FC = () => {
           type: getAnswerLetter(index)
         }));
 
+        // Get all correct answers
         answers = answersArray
           .map((answer: any, index: number) => answer.isCorrect ? getAnswerLetter(index) : null)
           .filter(Boolean);
+        
+        // If no correct answers, default to first
+        if (answers.length === 0 && answersArray.length > 0) {
+          answers = [getAnswerLetter(0)];
+          options[0].checked = true;
+        }
       }
 
       const questionTypeMap: Record<string, string> = {
@@ -175,8 +192,8 @@ const Questions: React.FC = () => {
         active: values.active !== undefined ? values.active : true,
         subject: values.subject,
         level: difficultyMap[values.difficulty] || 'normal',
-        video: values.embedVideo || values.videoUrl || '',
-        question: values.content,
+        video: values.video || values.embedVideo || values.videoUrl || '',
+        question: values.content || values.question || '',
         type: questionTypeMap[values.questionType],
         solution: values.solution || '',
         options: options.length > 0 ? options : [],

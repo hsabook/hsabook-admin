@@ -1,8 +1,9 @@
 import axios from 'axios';
 import { Exam, ExamsParams, ExamsResponse, CreateExamRequest } from './types';
 import { useAuthStore } from '../../store/authStore';
+import CONFIG_APP from '../../utils/config';
 
-const API_URL = 'https://hsabook-backend-dev.up.railway.app';
+const API_URL = CONFIG_APP.API_ENDPOINT;
 
 // Helper function to get auth headers
 const getAuthHeaders = () => {

@@ -2,7 +2,6 @@ import React, { useState, useEffect } from 'react';
 import { Drawer, Form, Input, Select, Switch, Button, Space, Upload, message, Radio, Checkbox, Card } from 'antd';
 import { UploadOutlined, CodeOutlined, PlusOutlined, VideoCameraOutlined, YoutubeOutlined } from '@ant-design/icons';
 import RichTextEditor from '../../components/RichTextEditor';
-import VideoDisplay from '../../components/VideoDisplay';
 import type { UploadFile } from 'antd/es/upload/interface';
 import { uploadFile } from '../../api/upload';
 
@@ -175,30 +174,98 @@ const QuestionModal: React.FC<QuestionModalProps> = ({
         finalVideoUrl = initialValues.embedVideo;
       }
 
+      // Ensure answers array exists and initialize with empty array if not
+      if (!values.answers) {
+        values.answers = [];
+      }
+      
       // Process answers for single choice questions
-      if (questionType === 'AN_ANSWER' && values.answers) {
-        values.answers = values.answers.map((answer: any, index: number) => ({
-          ...answer,
-          isCorrect: index === parseInt(correctAnswer || '0')
-        }));
+      if (questionType === 'AN_ANSWER') {
+        // If no answers, don't proceed
+        if (values.answers.length === 0) {
+          message.warning('Vui lòng thêm ít nhất một đáp án');
+          setUploading(false);
+          return;
+        }
+        
+        // Make sure correctAnswer is set, default to first answer if not specified
+        if (correctAnswer === null) {
+          setCorrectAnswer('0');
+          // Use the first answer as correct if none selected
+          values.answers = values.answers.map((answer: any, index: number) => ({
+            ...answer,
+            isCorrect: index === 0
+          }));
+        } else {
+          values.answers = values.answers.map((answer: any, index: number) => ({
+            ...answer,
+            isCorrect: index === parseInt(correctAnswer)
+          }));
+        }
       }
 
       // Process answers for multiple choice questions
-      if (questionType === 'MULTIPLE_ANSWERS' && values.answers) {
+      if (questionType === 'MULTIPLE_ANSWERS') {
+        // If no answers, don't proceed
+        if (values.answers.length === 0) {
+          message.warning('Vui lòng thêm ít nhất một đáp án');
+          setUploading(false);
+          return;
+        }
+        
+        // If no correct answers selected, warn user
+        if (multipleCorrectAnswers.length === 0) {
+          message.warning('Vui lòng chọn ít nhất một đáp án đúng');
+          setUploading(false);
+          return;
+        }
+        
         values.answers = values.answers.map((answer: any, index: number) => ({
           ...answer,
           isCorrect: multipleCorrectAnswers.includes(index.toString())
         }));
       }
 
+      // Process answers for true/false questions
+      if (questionType === 'TRUE_FALSE') {
+        if (!values.correctAnswer) {
+          message.warning('Vui lòng chọn đáp án đúng hoặc sai');
+          setUploading(false);
+          return;
+        }
+        
+        values.answers = [
+          { content: 'Đúng', isCorrect: values.correctAnswer === 'true' },
+          { content: 'Sai', isCorrect: values.correctAnswer === 'false' }
+        ];
+      }
+
+      // Process answers for text input questions
+      if (questionType === 'ENTER_ANSWER') {
+        if (!values.correctAnswer) {
+          message.warning('Vui lòng nhập đáp án đúng');
+          setUploading(false);
+          return;
+        }
+        
+        values.answers = [
+          { content: values.correctAnswer, isCorrect: true }
+        ];
+      }
+
+      // Add videoUrl and embedVideo for compatibility with Questions.tsx
       const formData = {
         ...values,
-        videoUrl: finalVideoUrl || undefined,
-        active: values.active || false,
+        videoUrl: finalVideoUrl || '',
+        embedVideo: finalVideoUrl || '',
+        video: finalVideoUrl || '',
+        question: values.content || '',
+        active: values.active !== undefined ? values.active : true,
         solution: values.solution || '',
       };
 
-      console.log('formData:', formData);
+      // Log the data being submitted for debugging
+      console.log('Submitting formData:', formData);
 
       await onSubmit(formData);
       

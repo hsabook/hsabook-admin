@@ -22,7 +22,9 @@ import axios from 'axios';
 import { useAuthStore } from '../../store/authStore';
 import QuestionDetail from '../../components/QuestionDetail';
 import QuestionContent from '../../components/QuestionDetail/QuestionContent';
-import { removeQuestionsFromExam } from '../../api/exams/service';
+import { removeQuestionsFromExam, updateExam } from '../../api/exams/service';
+import { api } from '../../utils/api';
+import CONFIG_APP from '../../utils/config';
 
 // Define interfaces for question detail
 interface QuestionOption {
@@ -96,18 +98,26 @@ const Exams: React.FC = () => {
   const [repositoryCurrentPage, setRepositoryCurrentPage] = useState<number>(1);
   const [repositoryPageSize, setRepositoryPageSize] = useState<number>(10);
 
-  // State for add question modal
+  // State for question detail modal
+  const [isQuestionDetailVisible, setIsQuestionDetailVisible] = useState<boolean>(false);
+  const [selectedQuestion, setSelectedQuestion] = useState<QuestionEntity | null>(null);
+  
+  // State for editing question
   const [isQuestionModalVisible, setIsQuestionModalVisible] = useState<boolean>(false);
+  const [editingQuestion, setEditingQuestion] = useState<any>(null);
   const [addQuestionLoading, setAddQuestionLoading] = useState<boolean>(false);
+
+  console.log('🔍 editingQuestion:', editingQuestion);
 
   // State for exam detail drawer
   const [isDetailDrawerVisible, setIsDetailDrawerVisible] = useState<boolean>(false);
   const [selectedExamDetail, setSelectedExamDetail] = useState<ExamDetail | null>(null);
   const [detailLoading, setDetailLoading] = useState<boolean>(false);
   
-  // State for question detail modal
-  const [isQuestionDetailVisible, setIsQuestionDetailVisible] = useState<boolean>(false);
-  const [selectedQuestion, setSelectedQuestion] = useState<QuestionEntity | null>(null);
+  // State for edit exam modal
+  const [isEditModalVisible, setIsEditModalVisible] = useState<boolean>(false);
+  const [editExamForm] = Form.useForm();
+  const [editExamLoading, setEditExamLoading] = useState<boolean>(false);
 
   // Fetch exams data
   const fetchExams = async (params: ExamsParams = {}) => {
@@ -148,7 +158,7 @@ const Exams: React.FC = () => {
   const fetchExamDetail = async (examId: string) => {
     try {
       setDetailLoading(true);
-      const response = await axios.get(`https://hsabook-backend-dev.up.railway.app/exams/${examId}`, {
+      const response = await axios.get(`${CONFIG_APP.API_ENDPOINT}/exams/${examId}`, {
         headers: {
           'accept': 'application/json',
           'authorization': `Bearer ${useAuthStore.getState().accessToken}`
@@ -250,16 +260,6 @@ const Exams: React.FC = () => {
               }}
             />
           </Tooltip>
-          <Tooltip title="Chỉnh sửa">
-            <Button
-              type="text"
-              icon={<EditOutlined />}
-              onClick={(e) => {
-                e.stopPropagation();
-                // Handle edit
-              }}
-            />
-          </Tooltip>
           <Tooltip title="Xóa">
             <Button
               type="text"
@@ -302,11 +302,11 @@ const Exams: React.FC = () => {
     fetchExams({ page, take: newPageSize });
   };
 
-  // Handle delete
+  // Handle delete exam
   const handleDelete = (id: string) => {
     confirm({
-      title: 'Bạn có chắc chắn muốn xóa bộ đề này?',
-      content: 'Hành động này không thể hoàn tác.',
+      title: 'Xác nhận xóa',
+      content: 'Bạn có chắc chắn muốn xóa bộ đề này?',
       okText: 'Xóa',
       okType: 'danger',
       cancelText: 'Hủy',
@@ -314,11 +314,17 @@ const Exams: React.FC = () => {
         try {
           setLoading(true);
           await deleteExam(id);
-          message.success('Đã xóa bộ đề thành công');
+          message.success('Xóa bộ đề thành công');
           fetchExams();
-        } catch (error) {
-          console.error(`🔴 Exams handleDelete error for id ${id}:`, error);
-          message.error('Failed to delete exam');
+        } catch (error: any) {
+          console.error('🔴 Exams handleDelete error:', error);
+          
+          // Hiển thị thông báo lỗi từ backend nếu có
+          if (error.response && error.response.data && error.response.data.message) {
+            message.error(error.response.data.message);
+          } else {
+            message.error('Xóa bộ đề thất bại');
+          }
         } finally {
           setLoading(false);
         }
@@ -552,6 +558,7 @@ const Exams: React.FC = () => {
   // Handle question modal cancel
   const handleQuestionModalCancel = () => {
     setIsQuestionModalVisible(false);
+    setEditingQuestion(null);
   };
 
   // Handle add question submit
@@ -642,50 +649,65 @@ const Exams: React.FC = () => {
       console.log('📝 Exams handleAddQuestion payload:', payload);
 
       // Show loading message
-      const loadingMessage = message.loading('Creating new question...', 0);
+      const loadingMessage = message.loading(
+        editingQuestion ? 'Updating question...' : 'Creating new question...', 
+        0
+      );
 
       try {
-        // Create new question
-        const response = await createQuestion(payload);
-        loadingMessage();
+        let response;
         
-        // Check if response contains the expected data structure
-        if (!response || !response.id) {
-          console.error('Invalid response from API:', response);
-          message.error('Failed to create question: Invalid response from server');
-          return;
+        if (editingQuestion) {
+          // Check if editingQuestion.id exists
+          if (!editingQuestion.id) {
+            loadingMessage();
+            message.error('Cannot update question: Missing question ID');
+            console.error('🔴 Missing question ID for update:', editingQuestion);
+            return null;
+          }
+          
+          // Log the question ID being used
+          console.log('📝 Updating question with ID:', editingQuestion.id);
+          
+          // Update existing question using the api utility function
+          response = await api(`/questions/${editingQuestion.id}`, {
+            method: 'PUT',
+            body: JSON.stringify(payload)
+          });
+          
+          loadingMessage();
+          message.success('Question updated successfully');
+        } else {
+          // Create new question
+          response = await createQuestion(payload);
+          loadingMessage();
+          message.success('Question created successfully');
+        }
+
+        // Close modal and reset form
+        setIsQuestionModalVisible(false);
+        setEditingQuestion(null);
+        
+        // If we're in exam detail view, refresh the questions
+        if (selectedExamDetail) {
+          fetchExamDetail(selectedExamDetail.id);
         }
         
-        // Log the full response for debugging
-        console.log('📝 Exams API response:', response);
-        
-        message.success('Question created successfully');
-        
-        // Add the new question to the questions list with data from API response
-        const responseData = response as any;
-        
-        // Create a question object for the table
-        // Using type assertion to handle the code_id property
-        const newQuestionForTable = {
-          id: responseData.id,
-          content: responseData.question || values.content,
-          type: responseData.type || questionTypeMap[values.questionType],
-          code_id: responseData.code_id || ''
-        } as Question;
-        
-        // Log the question details for debugging
-        console.log('📝 Exams adding new question to table:', newQuestionForTable);
-        
-        setQuestions(prev => [...prev, newQuestionForTable]);
-        setIsQuestionModalVisible(false);
+        return response;
       } catch (error) {
         loadingMessage();
-        console.error('Error creating question:', error);
-        message.error(`Failed to create question: ${(error as any)?.message || 'Unknown error'}`);
+        console.error('🔴 Exams handleAddQuestion error:', error);
+        message.error(
+          editingQuestion 
+            ? 'Failed to update question' 
+            : 'Failed to create question'
+        );
+        return null;
       }
-    } catch (validationError) {
-      console.error('Validation failed:', validationError);
-      message.error('Please check the question information');
+    } catch (error) {
+      console.error('🔴 Exams handleAddQuestion error:', error);
+      message.error('An error occurred while processing the question');
+      return null;
     } finally {
       setAddQuestionLoading(false);
     }
@@ -718,6 +740,65 @@ const Exams: React.FC = () => {
     setIsQuestionDetailVisible(true);
   };
 
+  // Prepare question for editing
+  const prepareQuestionForEditing = (question: any) => {
+    // Check if question object and ID exist
+    if (!question || !question.id) {
+      message.error('Invalid question data: Missing question ID');
+      console.error('🔴 Invalid question data:', question);
+      return;
+    }
+
+    // Validate UUID format
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    if (!uuidRegex.test(question.id)) {
+      message.error('Invalid question ID format');
+      console.error('🔴 Invalid question ID format:', question.id);
+      return;
+    }
+    
+    // Log the question ID being used
+    console.log('📝 Preparing to edit question with ID:', question.id);
+    
+    // Mapping for question types
+    const questionTypeMap: Record<string, string> = {
+      'Lựa chọn một đáp án': 'AN_ANSWER',
+      'Lựa chọn nhiều đáp án': 'MULTIPLE_ANSWERS',
+      'Đúng/Sai': 'TRUE_FALSE',
+      'Nhập đáp án': 'ENTER_ANSWER',
+      'Đọc hiểu': 'READ_UNDERSTAND'
+    };
+    
+    // Mapping for difficulty levels
+    const difficultyMap: Record<string, string> = {
+      'easy': 'easy',
+      'normal': 'medium',
+      'hard': 'hard'
+    };
+    
+    // Show loading message
+    const loadingMessage = message.loading('Đang tải thông tin câu hỏi...', 0);
+    
+    // Get question details using the api utility function
+    api(`/questions/${question.id}`)
+      .then((response) => {
+        loadingMessage();
+        
+        const questionData = response.data;
+        
+        console.log('📝 Exams prepareQuestionForEditing formatted question:', questionData);
+        
+        // Set the editing question and open the modal
+        setEditingQuestion(questionData);
+        setIsQuestionModalVisible(true);
+      })
+      .catch((error) => {
+        loadingMessage();
+        console.error('🔴 Exams prepareQuestionForEditing error:', error);
+        message.error('Không thể tải thông tin chi tiết của câu hỏi');
+      });
+  };
+
   // Close question detail
   const closeQuestionDetail = () => {
     setIsQuestionDetailVisible(false);
@@ -747,6 +828,65 @@ const Exams: React.FC = () => {
       message.error('Không thể xóa câu hỏi khỏi bộ đề');
     } finally {
       setDetailLoading(false);
+    }
+  };
+
+  // Show edit exam modal
+  const showEditExamModal = () => {
+    if (selectedExamDetail) {
+      // Set form values
+      editExamForm.setFieldsValue({
+        title: selectedExamDetail.title,
+        active: selectedExamDetail.active,
+        subject: selectedExamDetail.subject
+      });
+      
+      setIsEditModalVisible(true);
+    }
+  };
+
+  // Handle edit exam modal cancel
+  const handleEditModalCancel = () => {
+    setIsEditModalVisible(false);
+    editExamForm.resetFields();
+  };
+
+  // Handle edit exam submit
+  const handleEditExam = async (values: any) => {
+    if (!selectedExamDetail) return;
+    
+    try {
+      setEditExamLoading(true);
+      
+      // Prepare data for API
+      const examData = {
+        title: values.title,
+        active: values.active,
+        subject: values.subject,
+        questions: selectedExamDetail.exams_question.map(q => ({ id: q.question_id }))
+      };
+      
+      // Call API to update exam
+      const response = await updateExam(selectedExamDetail.id, examData);
+      
+      if (response) {
+        message.success('Cập nhật bộ đề thành công');
+        
+        // Close modal and refresh data
+        setIsEditModalVisible(false);
+        editExamForm.resetFields();
+        
+        // Refresh exam detail
+        fetchExamDetail(selectedExamDetail.id);
+        
+        // Refresh exams list
+        fetchExams();
+      }
+    } catch (error) {
+      console.error('🔴 Exams handleEditExam error:', error);
+      message.error('Không thể cập nhật bộ đề');
+    } finally {
+      setEditExamLoading(false);
     }
   };
 
@@ -1173,9 +1313,7 @@ const Exams: React.FC = () => {
           <Space>
             <Button onClick={closeExamDetail}>Đóng</Button>
             {selectedExamDetail && (
-              <Button type="primary" onClick={() => {
-                // Handle edit exam
-              }}>
+              <Button type="primary" onClick={showEditExamModal}>
                 Chỉnh sửa
               </Button>
             )}
@@ -1324,35 +1462,65 @@ const Exams: React.FC = () => {
                       width: 120,
                       render: (_, record: ExamQuestionEntity) => (
                         <Space>
-                          <Button 
-                            type="link" 
-                            onClick={() => {
-                              // Show question detail using the new component
-                              showQuestionDetail(record.question);
-                            }}
-                          >
-                            Chi tiết
-                          </Button>
-                          <Button 
-                            type="link" 
-                            danger
-                            onClick={() => {
-                              // Handle remove question from exam
-                              confirm({
-                                title: 'Xác nhận xóa câu hỏi',
-                                content: 'Bạn có chắc chắn muốn xóa câu hỏi này khỏi bộ đề?',
-                                okText: 'Xóa',
-                                okType: 'danger',
-                                cancelText: 'Hủy',
-                                onOk() {
-                                  // Call the function to remove question
-                                  handleRemoveQuestion(selectedExamDetail.id, record.question_id);
-                                },
-                              });
-                            }}
-                          >
-                            Xóa
-                          </Button>
+                          <Tooltip title="Chi tiết">
+                            <Button 
+                              type="text" 
+                              icon={<EyeOutlined className="text-green-500" />}
+                              onClick={() => {
+                                // Show question detail using the new component
+                                showQuestionDetail(record.question);
+                              }}
+                              className="hover:bg-green-50 transition-colors duration-300"
+                            />
+                          </Tooltip>
+                          <Tooltip title="Chỉnh sửa">
+                            <Button 
+                              type="text" 
+                              icon={<EditOutlined className="text-blue-500" />}
+                              onClick={() => {
+                                // Debug question object
+                                console.log('🔍 Debug question object:', record.question);
+                                console.log('🔍 Debug question_id:', record.question_id);
+                                
+                                // Use question_id from ExamQuestionEntity which is guaranteed to be a valid UUID
+                                if (record.question && record.question_id) {
+                                  // Create a copy of the question object with the correct ID
+                                  const questionWithCorrectId = {
+                                    ...record.question,
+                                    id: record.question_id
+                                  };
+                                  
+                                  // Show question detail for editing with the correct ID
+                                  prepareQuestionForEditing(questionWithCorrectId);
+                                } else {
+                                  message.error('Không thể chỉnh sửa: Thiếu thông tin câu hỏi');
+                                }
+                              }}
+                              className="hover:bg-blue-50 transition-colors duration-300"
+                            />
+                          </Tooltip>
+                          <Tooltip title="Xóa">
+                            <Button 
+                              type="text" 
+                              danger
+                              icon={<DeleteOutlined />}
+                              onClick={() => {
+                                // Handle remove question from exam
+                                confirm({
+                                  title: 'Xác nhận xóa câu hỏi',
+                                  content: 'Bạn có chắc chắn muốn xóa câu hỏi này khỏi bộ đề?',
+                                  okText: 'Xóa',
+                                  okType: 'danger',
+                                  cancelText: 'Hủy',
+                                  onOk() {
+                                    // Call the function to remove question
+                                    handleRemoveQuestion(selectedExamDetail.id, record.question_id);
+                                  },
+                                });
+                              }}
+                              className="hover:bg-red-50 transition-colors duration-300"
+                            />
+                          </Tooltip>
                         </Space>
                       ),
                     },
@@ -1382,8 +1550,57 @@ const Exams: React.FC = () => {
         open={isQuestionModalVisible}
         onCancel={handleQuestionModalCancel}
         onSubmit={handleAddQuestion}
-        title="Add New Question"
+        title={editingQuestion ? "Chỉnh sửa câu hỏi" : "Thêm câu hỏi mới"}
+        initialValues={editingQuestion}
       />
+
+      {/* Edit Exam Modal */}
+      <Modal
+        title="Chỉnh sửa bộ đề"
+        open={isEditModalVisible}
+        onCancel={handleEditModalCancel}
+        onOk={() => editExamForm.submit()}
+        confirmLoading={editExamLoading}
+      >
+        <Form
+          form={editExamForm}
+          layout="vertical"
+          onFinish={handleEditExam}
+        >
+          <Form.Item
+            name="title"
+            label="Tên bộ đề"
+            rules={[{ required: true, message: 'Vui lòng nhập tên bộ đề!' }]}
+          >
+            <Input placeholder="Nhập tên bộ đề" />
+          </Form.Item>
+          <Form.Item
+            name="active"
+            label="Trạng thái"
+            valuePropName="checked"
+            rules={[{ required: true, message: 'Vui lòng chọn trạng thái!' }]}
+          >
+            <Switch />
+          </Form.Item>
+          <Form.Item
+            name="subject"
+            label="Môn học"
+            rules={[{ required: true, message: 'Vui lòng chọn môn học!' }]}
+          >
+            <Select placeholder="Chọn môn học">
+              <Select.Option value="Toán">Toán</Select.Option>
+              <Select.Option value="Ngữ văn">Ngữ văn</Select.Option>
+              <Select.Option value="Tiếng Anh">Tiếng Anh</Select.Option>
+              <Select.Option value="Vật lý">Vật lý</Select.Option>
+              <Select.Option value="Hóa học">Hóa học</Select.Option>
+              <Select.Option value="Sinh học">Sinh học</Select.Option>
+              <Select.Option value="Lịch sử">Lịch sử</Select.Option>
+              <Select.Option value="Địa lý">Địa lý</Select.Option>
+              <Select.Option value="GDCD">GDCD</Select.Option>
+            </Select>
+          </Form.Item>
+        </Form>
+      </Modal>
     </>
   );
 };
