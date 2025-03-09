@@ -164,4 +164,28 @@ export const addQuestionToExam = async (examId: string, questionId: string, scor
     console.error(`🔴 ExamsService addQuestionToExam error for exam ${examId}, question ${questionId}:`, error);
     throw error;
   }
+};
+
+// Update exam questions
+export const updateExamQuestions = async (examId: string, title: string, active: boolean, subject: string, questionIds: string[]): Promise<any> => {
+  try {
+    const questions = questionIds.map(id => ({ id }));
+    
+    const response = await axios.put(`${API_URL}/exams/${examId}`, {
+      title,
+      active,
+      subject,
+      questions
+    }, {
+      headers: {
+        'Content-Type': 'application/json',
+        ...getAuthHeaders()
+      }
+    });
+    
+    return response.data;
+  } catch (error) {
+    console.error(`🔴 ExamsService updateExamQuestions error for exam ${examId}:`, error);
+    throw error;
+  }
 }; 

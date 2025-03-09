@@ -23,13 +23,15 @@ import {
   ReloadOutlined,
   PlusOutlined,
   ImportOutlined,
-  EyeOutlined,
   EditOutlined,
   DeleteOutlined,
   PlusCircleOutlined,
   DatabaseOutlined,
   CloseOutlined,
   SyncOutlined,
+  EyeOutlined,
+  UploadOutlined,
+  CopyOutlined,
 } from "@ant-design/icons";
 import {
   getExams,
@@ -42,6 +44,8 @@ import {
   removeQuestionsFromExam,
   updateExam,
   addQuestionToExam,
+  getExamById,
+  updateExamQuestions,
 } from "../../api/exams";
 import { getQuestions } from "../../api/questions/questionService";
 import {
@@ -49,12 +53,9 @@ import {
   QUESTION_TYPE,
 } from "../../components/QuestionModal/QuestionModal";
 import QuestionModal from "../../components/QuestionModal";
-import { createQuestion } from "../../api/questions/questionService";
 import axios from "axios";
 import { useAuthStore } from "../../store/authStore";
 import QuestionDetail from "../../components/QuestionDetail";
-import QuestionContent from "../../components/QuestionDetail/QuestionContent";
-import { api } from "../../utils/api";
 import CONFIG_APP from "../../utils/config";
 
 // Define interfaces for question detail
@@ -160,6 +161,9 @@ const Exams: React.FC = () => {
   const [editExamForm] = Form.useForm();
   const [editExamLoading, setEditExamLoading] = useState<boolean>(false);
 
+  // State for confirm loading
+  const [confirmLoading, setConfirmLoading] = useState<boolean>(false);
+
   // Fetch exams data
   const fetchExams = async (params: ExamsParams = {}) => {
     try {
@@ -234,6 +238,48 @@ const Exams: React.FC = () => {
     setSelectedExamDetail(null);
   };
 
+  // Handle toggle active status
+  const handleToggleActive = async (record: Exam, checked: boolean) => {
+    // Store original active state for potential rollback
+    const originalActiveState = record.active;
+    
+    try {
+      // Update local state immediately for better UX
+      const updatedExams = exams.map(exam => {
+        if (exam.id === record.id) {
+          return { ...exam, active: checked };
+        }
+        return exam;
+      });
+      setExams(updatedExams);
+      
+      // Create a minimal update payload with just the active status
+      const updateData = {
+        active: checked
+      };
+      
+      // Call API to update exam with minimal data
+      await updateExam(record.id, updateData);
+      
+      // Success message
+      message.success(`${record.title} ${checked ? 'Đã kích hoạt' : 'Đã tắt'} thành công`);
+    } catch (error) {
+      console.error("🔴 Exams handleToggleActive error:", error);
+      
+      // Revert the local state change
+      const revertedExams = exams.map(exam => {
+        if (exam.id === record.id) {
+          return { ...exam, active: originalActiveState };
+        }
+        return exam;
+      });
+      setExams(revertedExams);
+      
+      // Show error message
+      message.error("Không thể cập nhật trạng thái bộ đề");
+    }
+  };
+
   // Table columns configuration
   const columns = [
     {
@@ -252,20 +298,47 @@ const Exams: React.FC = () => {
       title: "Trạng thái",
       dataIndex: "active",
       key: "active",
-      render: (active: boolean) => (
-        <span
-          className={`px-2 py-1 rounded text-xs ${
-            active ? "bg-green-100 text-green-800" : "bg-gray-100 text-gray-800"
-          }`}
-        >
-          {active ? "Hoạt động" : "Không hoạt động"}
-        </span>
+      render: (active: boolean, record: Exam) => (
+        <div className="flex items-center">
+          <Switch
+            checked={active}
+            onChange={(checked) => handleToggleActive(record, checked)}
+            // className="mr-2"
+            size="small"
+            // style={{ minWidth: '36px', height: '18px' }}
+          />
+          {/* <span
+            className={`px-2 py-1 rounded text-xs ${
+              active ? "bg-green-100 text-green-800" : "bg-gray-100 text-gray-800"
+            }`}
+          >
+            {active ? "Hoạt động" : "Không hoạt động"}
+          </span> */}
+        </div>
       ),
     },
     {
       title: "ID bộ đề",
       dataIndex: "code_id",
       key: "code_id",
+      render: (code_id: string) => (
+        <div className="flex items-center">
+          <span className="mr-1">{code_id}</span>
+          <Tooltip title="Copy ID">
+            <Button
+              type="text"
+              icon={<CopyOutlined style={{ fontSize: '14px' }} />}
+              size="small"
+              style={{ padding: '0 4px', height: '22px' }}
+              onClick={(e) => {
+                e.stopPropagation();
+                navigator.clipboard.writeText(code_id);
+                message.success("Đã sao chép ID bộ đề");
+              }}
+            />
+          </Tooltip>
+        </div>
+      ),
     },
     {
       title: "Số câu hỏi",
@@ -298,10 +371,12 @@ const Exams: React.FC = () => {
       width: 150,
       render: (_: any, record: Exam) => (
         <Space size="small">
-          <Tooltip title="Xem chi tiết">
+          <Tooltip title="Chỉnh sửa">
             <Button
               type="text"
-              icon={<EyeOutlined />}
+              icon={<EditOutlined style={{ fontSize: '14px' }} />}
+              size="small"
+              style={{ padding: '0 4px', height: '22px' }}
               onClick={(e) => {
                 e.stopPropagation();
                 showExamDetail(record.id);
@@ -312,7 +387,9 @@ const Exams: React.FC = () => {
             <Button
               type="text"
               danger
-              icon={<DeleteOutlined />}
+              icon={<DeleteOutlined style={{ fontSize: '14px' }} />}
+              size="small"
+              style={{ padding: '0 4px', height: '22px' }}
               onClick={(e) => {
                 e.stopPropagation();
                 handleDelete(record.id);
@@ -583,41 +660,81 @@ const Exams: React.FC = () => {
   };
 
   // Handle confirm add questions
-  const handleConfirmAddQuestions = () => {
+  const handleConfirmAddQuestions = async () => {
     if (selectedQuestionIds.length === 0) {
       message.warning("Vui lòng chọn ít nhất một câu hỏi");
       return;
     }
 
-    // Add selected questions to the exam
-    const selectedQuestions = repositoryQuestions.filter((q) =>
-      selectedQuestionIds.includes(q.id)
-    );
+    try {
+      // If we're in exam detail view, update the exam with new questions
+      if (selectedExamDetail) {
+        setConfirmLoading(true);
+        
+        // Get current question IDs
+        const currentQuestionIds = selectedExamDetail.exams_question.map(q => q.question_id);
+        
+        // Add new question IDs (avoid duplicates)
+        const updatedQuestionIds = [...new Set([...currentQuestionIds, ...selectedQuestionIds])];
+        
+        // Prepare data for API
+        const examData = {
+          title: selectedExamDetail.title,
+          active: selectedExamDetail.active,
+          subject: selectedExamDetail.subject,
+          questions: updatedQuestionIds.map(id => ({ id }))
+        };
 
-    // Chỉ lấy các thông tin cần thiết để hiển thị trong bảng câu hỏi của bộ đề
-    const questionsToAdd = selectedQuestions.map((q) => ({
-      id: q.id,
-      code_id: q.code_id,
-      content: q.content,
-      type: q.type,
-    }));
+        // Call API to update exam
+        const response = await updateExam(selectedExamDetail.id, examData);
 
-    setQuestions((prev) => {
-      // Lọc ra các câu hỏi chưa có trong danh sách
-      const newQuestions = questionsToAdd.filter(
-        (newQ) => !prev.some((existingQ) => existingQ.id === newQ.id)
-      );
+        if (response) {
+          message.success(`Đã thêm ${selectedQuestionIds.length} câu hỏi vào bộ đề`);
+          
+          // Refresh exam detail
+          fetchExamDetail(selectedExamDetail.id);
+          
+          // Close modal
+          handleRepositoryModalCancel();
+        }
+      } else {
+        // We're in create exam view, just update the local state
+        // Add selected questions to the exam
+        const selectedQuestions = repositoryQuestions.filter((q) =>
+          selectedQuestionIds.includes(q.id)
+        );
 
-      if (newQuestions.length === 0) {
-        message.info("Các câu hỏi đã tồn tại trong bộ đề");
-        return prev;
+        // Chỉ lấy các thông tin cần thiết để hiển thị trong bảng câu hỏi của bộ đề
+        const questionsToAdd = selectedQuestions.map((q) => ({
+          id: q.id,
+          code_id: q.code_id,
+          content: q.content,
+          type: q.type,
+        }));
+
+        setQuestions((prev) => {
+          // Lọc ra các câu hỏi chưa có trong danh sách
+          const newQuestions = questionsToAdd.filter(
+            (newQ) => !prev.some((existingQ) => existingQ.id === newQ.id)
+          );
+
+          if (newQuestions.length === 0) {
+            message.info("Các câu hỏi đã tồn tại trong bộ đề");
+            return prev;
+          }
+
+          message.success(`Đã thêm ${newQuestions.length} câu hỏi vào bộ đề`);
+          return [...prev, ...newQuestions];
+        });
+
+        handleRepositoryModalCancel();
       }
-
-      message.success(`Đã thêm ${newQuestions.length} câu hỏi vào bộ đề`);
-      return [...prev, ...newQuestions];
-    });
-
-    handleRepositoryModalCancel();
+    } catch (error) {
+      console.error("🔴 Exams handleConfirmAddQuestions error:", error);
+      message.error("Không thể thêm câu hỏi vào bộ đề");
+    } finally {
+      setConfirmLoading(false);
+    }
   };
 
   // Handle add new question
@@ -627,20 +744,6 @@ const Exams: React.FC = () => {
 
   // Handle question created
   const handleQuestionCreated = async (newQuestion: any) => {
-    // Add the new question to the repository questions list
-    const formattedRepositoryQuestion = {
-      id: newQuestion.id,
-      code_id: newQuestion.code_id || "",
-      content: newQuestion.question,
-      question: newQuestion.question,
-      type: newQuestion.type,
-      subject: newQuestion.subject,
-      level: newQuestion.level,
-      active: newQuestion.active,
-      options: newQuestion.options || [],
-      answers: newQuestion.answers || [],
-    };
-
     // If repository modal is open, refresh the questions list
     if (isRepositoryModalVisible) {
       message.success("Câu hỏi mới đã được thêm vào kho câu hỏi");
@@ -762,18 +865,33 @@ const Exams: React.FC = () => {
     try {
       setDetailLoading(true);
 
-      // Call API to remove question from exam using the service function
-      const response = await removeQuestionsFromExam(examId, [questionId]);
+      if (selectedExamDetail) {
+        // Get current question IDs excluding the one to be removed
+        // const updatedQuestionIds = selectedExamDetail.exams_question
+        //   .filter(q => q.question_id !== questionId)
+        //   .map(q => q.question_id);
+        
+        // Prepare data for API
+        // const examData = {
+        //   title: selectedExamDetail.title,
+        //   active: selectedExamDetail.active,
+        //   subject: selectedExamDetail.subject,
+        //   questions: updatedQuestionIds.map(id => ({ id }))
+        // };
 
-      if (response && response.status_code === 200) {
-        message.success("Đã xóa câu hỏi khỏi bộ đề");
+        // Call API to update exam
+        const response = await removeQuestionsFromExam(examId, [questionId]);
 
-        // Refresh exam detail to update the question list
-        if (selectedExamDetail) {
+        if (response) {
+          message.success("Đã xóa câu hỏi khỏi bộ đề");
+          
+          // Refresh exam detail
           fetchExamDetail(examId);
+        } else {
+          message.error(response.message);
         }
       } else {
-        message.error("Không thể xóa câu hỏi khỏi bộ đề");
+        message.error("Không tìm thấy thông tin bộ đề");
       }
     } catch (error) {
       console.error("🔴 Exams handleRemoveQuestion error:", error);
@@ -1084,6 +1202,7 @@ const Exams: React.FC = () => {
               type="primary"
               onClick={handleConfirmAddQuestions}
               style={{ backgroundColor: "#22c55e" }}
+              loading={confirmLoading}
             >
               Xác nhận
             </Button>,
@@ -1384,15 +1503,27 @@ const Exams: React.FC = () => {
             <div>
               <div className="flex justify-between items-center">
                 <Title level={5}>Danh sách câu hỏi</Title>
-                <Button
-                  type="primary"
-                  icon={<PlusOutlined />}
-                  onClick={() => {
-                    // Handle add question to exam
-                  }}
-                >
-                  Thêm câu hỏi
-                </Button>
+                <Space>
+                  <Button
+                    type="primary"
+                    icon={<DatabaseOutlined />}
+                    onClick={handleAddFromRepository}
+                    className="bg-blue-500 hover:bg-blue-600"
+                  >
+                    Thêm từ kho câu hỏi
+                  </Button>
+                  {/* <Button
+                    type="primary"
+                    icon={<PlusOutlined />}
+                    onClick={() => {
+                      // Handle add new question
+                      handleAddNewQuestion();
+                    }}
+                    className="bg-green-500 hover:bg-green-600"
+                  >
+                    Thêm câu hỏi mới
+                  </Button> */}
+                </Space>
               </div>
               {selectedExamDetail.exams_question &&
               selectedExamDetail.exams_question.length > 0 ? (

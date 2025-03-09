@@ -792,9 +792,19 @@ const QuestionModal: React.FC<QuestionModalProps> = ({
         <Form.Item
           name="solution"
           label="Giải thích đáp án"
+          rules={[
+            { 
+              required: questionType === QUESTION_TYPE.ENTER_ANSWER || questionType === QUESTION_TYPE.READ_UNDERSTAND, 
+              message: 'Vui lòng nhập giải thích đáp án!' 
+            }
+          ]}
         >
           <RichTextEditor
-            placeholder="Nhập giải thích đáp án (không bắt buộc)"
+            placeholder={
+              questionType === QUESTION_TYPE.ENTER_ANSWER || questionType === QUESTION_TYPE.READ_UNDERSTAND
+                ? "Nhập giải thích đáp án"
+                : "Nhập giải thích đáp án (không bắt buộc)"
+            }
             className="min-h-[150px]"
           />
         </Form.Item>
@@ -958,7 +968,7 @@ const QuestionModal: React.FC<QuestionModalProps> = ({
         )}
 
         {/* Text Answer */}
-        {questionType === QUESTION_TYPE.ENTER_ANSWER && (
+        {/* {questionType === QUESTION_TYPE.ENTER_ANSWER && (
           <Form.Item
             name="correctAnswer"
             label="Đáp án đúng"
@@ -969,10 +979,10 @@ const QuestionModal: React.FC<QuestionModalProps> = ({
               className="min-h-[100px]"
             />
           </Form.Item>
-        )}
+        )} */}
 
         {/* Reading Comprehension */}
-        {questionType === QUESTION_TYPE.READ_UNDERSTAND && (
+        {/* {questionType === QUESTION_TYPE.READ_UNDERSTAND && (
           <div className="border-t pt-4 mt-4">
             <Form.Item
               name="readingText"
@@ -985,7 +995,7 @@ const QuestionModal: React.FC<QuestionModalProps> = ({
               />
             </Form.Item>
           </div>
-        )}
+        )} */}
       </Form>
     </Drawer>
   );
