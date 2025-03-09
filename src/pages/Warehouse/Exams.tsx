@@ -57,6 +57,7 @@ import axios from "axios";
 import { useAuthStore } from "../../store/authStore";
 import QuestionDetail from "../../components/QuestionDetail";
 import CONFIG_APP from "../../utils/config";
+import QuestionRepositoryDrawer from "./QuestionRepositoryDrawer";
 
 // Define interfaces for question detail
 interface QuestionOption {
@@ -1187,579 +1188,389 @@ const Exams: React.FC = () => {
           </Form>
         </Drawer>
 
-        {/* Question Repository Modal */}
-        <Modal
-          title={<div className="text-xl">Thêm câu hỏi vào bộ đề</div>}
-          open={isRepositoryModalVisible}
+        {/* Question Repository Drawer */}
+        <QuestionRepositoryDrawer
+          visible={isRepositoryModalVisible}
+          loading={repositoryLoading}
+          questions={repositoryQuestions}
+          selectedQuestionIds={selectedQuestionIds}
+          searchText={repositorySearchText}
+          questionType={repositoryQuestionType}
+          subject={repositorySubject}
+          total={repositoryTotal}
+          currentPage={repositoryCurrentPage}
+          pageSize={repositoryPageSize}
+          confirmLoading={confirmLoading}
+          QUESTION_TYPE={QUESTION_TYPE}
+          onSearch={handleRepositorySearch}
+          onQuestionTypeChange={handleRepositoryQuestionTypeChange}
+          onSubjectChange={handleRepositorySubjectChange}
+          onPageChange={handleRepositoryPageChange}
+          onSelectAllQuestions={handleSelectAllQuestions}
+          onSelectQuestion={handleSelectQuestion}
+          onConfirmAdd={handleConfirmAddQuestions}
           onCancel={handleRepositoryModalCancel}
-          width={1000}
-          footer={[
-            <Button key="cancel" onClick={handleRepositoryModalCancel}>
-              Hủy
-            </Button>,
-            <Button
-              key="submit"
-              type="primary"
-              onClick={handleConfirmAddQuestions}
-              style={{ backgroundColor: "#22c55e" }}
-              loading={confirmLoading}
-            >
-              Xác nhận
-            </Button>,
-          ]}
-          closeIcon={<CloseOutlined />}
-        >
-          <div className="mb-4">
-            <p className="mb-4 text-gray-600">Chọn câu hỏi để thêm vào bộ đề</p>
+          onRefresh={fetchRepositoryQuestions}
+          setPageSize={setRepositoryPageSize}
+        />
 
-            <div className="flex flex-wrap gap-3 mb-4 items-center">
-              <Input
-                placeholder="Tìm kiếm"
-                prefix={<SearchOutlined />}
-                style={{ width: 250 }}
-                value={repositorySearchText}
-                onChange={(e) => setRepositorySearchText(e.target.value)}
-                onPressEnter={(e) =>
-                  handleRepositorySearch((e.target as HTMLInputElement).value)
-                }
-              />
-
-              <Select
-                placeholder="Loại câu hỏi"
-                style={{ width: 200 }}
-                value={repositoryQuestionType}
-                onChange={handleRepositoryQuestionTypeChange}
-                allowClear
-              >
-                {Object.values(QUESTION_TYPE).map((type) => (
-                  <Select.Option key={type} value={type}>
-                    {type}
-                  </Select.Option>
-                ))}
-              </Select>
-
-              <Select
-                placeholder="Môn học"
-                style={{ width: 200 }}
-                value={repositorySubject}
-                onChange={handleRepositorySubjectChange}
-                allowClear
-              >
-                {HighSchoolSubjects.map((subject) => (
-                  <Select.Option key={subject.value} value={subject.title}>
-                    {subject.title}
-                  </Select.Option>
-                ))}
-              </Select>
-
-              <Button
-                icon={<SyncOutlined />}
-                onClick={() => fetchRepositoryQuestions()}
-                loading={repositoryLoading}
-                className="ml-auto"
-              >
-                Làm mới
-              </Button>
-            </div>
-
-            <Table
-              rowSelection={{
-                type: "checkbox",
-                selectedRowKeys: selectedQuestionIds,
-                columnWidth: 60,
-                onSelectAll: handleSelectAllQuestions,
-                onSelect: handleSelectQuestion,
-              }}
-              columns={[
-                {
-                  title: "Câu hỏi",
-                  dataIndex: "content",
-                  key: "content",
-                  render: (content: string) => (
-                    <div
-                      dangerouslySetInnerHTML={{
-                        __html: content || "Không có nội dung",
-                      }}
-                      className="max-h-20 overflow-y-auto"
-                    />
-                  ),
-                },
-                {
-                  title: "Loại câu hỏi",
-                  dataIndex: "type",
-                  key: "type",
-                  width: 180,
-                  render: (type: string) => {
-                    let color = "blue";
-                    if (type === "Lựa chọn một đáp án") color = "green";
-                    if (type === "Lựa chọn nhiều đáp án") color = "purple";
-                    if (type === "Đúng/Sai") color = "orange";
-                    if (type === "Nhập đáp án") color = "cyan";
-                    if (type === "Đọc hiểu") color = "magenta";
-
-                    return <Tag color={color}>{type}</Tag>;
-                  },
-                },
-                {
-                  title: "Môn học",
-                  dataIndex: "subject",
-                  key: "subject",
-                  width: 120,
-                  render: (subject: string) => {
-                    let color = "blue";
-                    if (subject === "Toán") color = "blue";
-                    if (subject === "Ngữ văn") color = "green";
-                    if (subject === "Tiếng Anh") color = "purple";
-                    if (subject === "Vật lý") color = "orange";
-                    if (subject === "Hóa học") color = "red";
-                    if (subject === "Sinh học") color = "cyan";
-
-                    return <Tag color={color}>{subject}</Tag>;
-                  },
-                },
-                {
-                  title: "ID Câu hỏi",
-                  dataIndex: "code_id",
-                  key: "code_id",
-                  width: 120,
-                },
-              ]}
-              dataSource={repositoryQuestions}
-              rowKey="id"
-              loading={repositoryLoading}
-              pagination={false}
-              locale={{ emptyText: "Không có dữ liệu!" }}
-              className="border border-gray-200 rounded-md"
-              rowClassName={(record) =>
-                selectedQuestionIds.includes(record.id)
-                  ? "bg-green-50"
-                  : "hover:bg-gray-50"
-              }
-              onRow={(record) => ({
-                onClick: () => {
-                  // Toggle selection when clicking on row
-                  if (selectedQuestionIds.includes(record.id)) {
-                    setSelectedQuestionIds((prev) =>
-                      prev.filter((id) => id !== record.id)
-                    );
-                  } else {
-                    setSelectedQuestionIds((prev) => [...prev, record.id]);
-                  }
-                },
-                style: { cursor: "pointer" },
-              })}
-            />
-
-            <div className="flex items-center justify-between mt-4">
-              <div>
-                {repositoryTotal > 0 && (
-                  <span className="text-gray-600">
-                    {repositoryCurrentPage} / page
-                  </span>
-                )}
-              </div>
-              <div className="flex items-center">
-                <Button
-                  type="text"
-                  disabled={repositoryCurrentPage <= 1}
-                  onClick={() =>
-                    handleRepositoryPageChange(repositoryCurrentPage - 1)
-                  }
-                >
-                  &lt;
-                </Button>
-                <Button type="text" className="mx-2 bg-green-500 text-white">
-                  {repositoryCurrentPage}
-                </Button>
-                <Button
-                  type="text"
-                  disabled={
-                    repositoryCurrentPage >=
-                    Math.ceil(repositoryTotal / repositoryPageSize)
-                  }
-                  onClick={() =>
-                    handleRepositoryPageChange(repositoryCurrentPage + 1)
-                  }
-                >
-                  &gt;
-                </Button>
-
-                <Select
-                  className="ml-4"
-                  value={`${repositoryPageSize} / page`}
-                  style={{ width: 120 }}
-                  onChange={(value) => {
-                    const newPageSize = parseInt(value.split(" ")[0]);
-                    setRepositoryPageSize(newPageSize);
-                    handleRepositoryPageChange(1, newPageSize);
-                  }}
-                >
-                  <Select.Option value="10 / page">10 / page</Select.Option>
-                  <Select.Option value="20 / page">20 / page</Select.Option>
-                  <Select.Option value="50 / page">50 / page</Select.Option>
-                </Select>
-              </div>
-            </div>
-          </div>
-        </Modal>
-      </Card>
-
-      {/* Exam Detail Drawer */}
-      <Drawer
-        title={
-          <div className="flex items-center">
-            <span className="mr-2">
-              {selectedExamDetail?.title || "Chi tiết bộ đề"}
-            </span>
-            {selectedExamDetail?.active && <Tag color="green">Hoạt động</Tag>}
-            {!selectedExamDetail?.active && (
-              <Tag color="red">Không hoạt động</Tag>
-            )}
-          </div>
-        }
-        placement="right"
-        width={800}
-        onClose={closeExamDetail}
-        open={isDetailDrawerVisible}
-        extra={
-          <Space>
-            <Button onClick={closeExamDetail}>Đóng</Button>
-            {selectedExamDetail && (
-              <Button type="primary" onClick={showEditExamModal}>
-                Chỉnh sửa
-              </Button>
-            )}
-          </Space>
-        }
-        className="exam-detail-drawer"
-      >
-        {detailLoading ? (
-          <div className="flex justify-center items-center h-full">
-            <Spin size="large" />
-          </div>
-        ) : selectedExamDetail ? (
-          <div className="space-y-6">
-            <div className="bg-gray-50 p-4 rounded-md">
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <Text type="secondary">ID bộ đề:</Text>
-                  <div className="font-medium">
-                    {selectedExamDetail.code_id}
-                  </div>
-                </div>
-                <div>
-                  <Text type="secondary">Môn học:</Text>
-                  <div>
-                    <Tag color="blue">{selectedExamDetail.subject}</Tag>
-                  </div>
-                </div>
-                <div>
-                  <Text type="secondary">Trạng thái:</Text>
-                  <div>
-                    <Tag color={selectedExamDetail.active ? "green" : "red"}>
-                      {selectedExamDetail.active
-                        ? "Hoạt động"
-                        : "Không hoạt động"}
-                    </Tag>
-                  </div>
-                </div>
-                <div>
-                  <Text type="secondary">Ngày tạo:</Text>
-                  <div className="font-medium">
-                    {new Date(selectedExamDetail.created_at).toLocaleString(
-                      "vi-VN"
-                    )}
-                  </div>
-                </div>
-                <div>
-                  <Text type="secondary">Cập nhật lần cuối:</Text>
-                  <div className="font-medium">
-                    {new Date(selectedExamDetail.updated_at).toLocaleString(
-                      "vi-VN"
-                    )}
-                  </div>
-                </div>
-                <div>
-                  <Text type="secondary">Số câu hỏi:</Text>
-                  <div className="font-medium">
-                    {selectedExamDetail.exams_question?.length || 0}
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {selectedExamDetail.description && (
-              <div>
-                <Title level={5}>Mô tả</Title>
-                <div
-                  dangerouslySetInnerHTML={{
-                    __html: selectedExamDetail.description,
-                  }}
-                  className="p-3 bg-gray-50 rounded mt-2"
-                />
-              </div>
-            )}
-
-            <div>
-              <div className="flex justify-between items-center">
-                <Title level={5}>Danh sách câu hỏi</Title>
-                <Space>
-                  <Button
-                    type="primary"
-                    icon={<DatabaseOutlined />}
-                    onClick={handleAddFromRepository}
-                    className="bg-blue-500 hover:bg-blue-600"
-                  >
-                    Thêm từ kho câu hỏi
-                  </Button>
-                  {/* <Button
-                    type="primary"
-                    icon={<PlusOutlined />}
-                    onClick={() => {
-                      // Handle add new question
-                      handleAddNewQuestion();
-                    }}
-                    className="bg-green-500 hover:bg-green-600"
-                  >
-                    Thêm câu hỏi mới
-                  </Button> */}
-                </Space>
-              </div>
-              {selectedExamDetail.exams_question &&
-              selectedExamDetail.exams_question.length > 0 ? (
-                <Table
-                  dataSource={selectedExamDetail.exams_question}
-                  rowKey="id"
-                  pagination={false}
-                  className="mt-4"
-                  columns={[
-                    {
-                      title: "STT",
-                      key: "index",
-                      width: 60,
-                      render: (_, __, index) => index + 1,
-                    },
-                    {
-                      title: "Mã câu hỏi",
-                      dataIndex: ["question", "code_id"],
-                      key: "code_id",
-                      width: 120,
-                    },
-                    {
-                      title: "Nội dung câu hỏi",
-                      dataIndex: ["question", "question"],
-                      key: "question",
-                      render: (_, record: ExamQuestionEntity) => (
-                        <div
-                          dangerouslySetInnerHTML={{
-                            __html:
-                              record.question?.question || "Không có nội dung",
-                          }}
-                          className="max-h-20 overflow-y-auto"
-                        />
-                      ),
-                    },
-                    {
-                      title: "Loại câu hỏi",
-                      dataIndex: ["question", "type"],
-                      key: "type",
-                      width: 180,
-                      render: (_, record: ExamQuestionEntity) => {
-                        const type = record.question?.type || "";
-                        let color = "blue";
-                        if (type === "Lựa chọn một đáp án") color = "green";
-                        if (type === "Lựa chọn nhiều đáp án") color = "purple";
-                        if (type === "Đúng/Sai") color = "orange";
-                        if (type === "Nhập đáp án") color = "cyan";
-                        if (type === "Đọc hiểu") color = "magenta";
-
-                        return <Tag color={color}>{type}</Tag>;
-                      },
-                    },
-                    {
-                      title: "Môn học",
-                      dataIndex: ["question", "subject"],
-                      key: "subject",
-                      width: 120,
-                      render: (_, record: ExamQuestionEntity) => {
-                        const subject = record.question?.subject || "";
-                        let color = "blue";
-                        if (subject === "Toán") color = "blue";
-                        if (subject === "Ngữ văn") color = "green";
-                        if (subject === "Tiếng Anh") color = "purple";
-                        if (subject === "Vật lý") color = "orange";
-                        if (subject === "Hóa học") color = "red";
-                        if (subject === "Sinh học") color = "cyan";
-
-                        return <Tag color={color}>{subject}</Tag>;
-                      },
-                    },
-                    {
-                      title: "Thao tác",
-                      key: "action",
-                      width: 120,
-                      render: (_, record: ExamQuestionEntity) => (
-                        <Space>
-                          <Tooltip title="Chi tiết">
-                            <Button
-                              type="text"
-                              icon={<EyeOutlined className="text-green-500" />}
-                              onClick={() => {
-                                // Show question detail using the new component
-                                showQuestionDetail(record.question);
-                              }}
-                              className="hover:bg-green-50 transition-colors duration-300"
-                            />
-                          </Tooltip>
-                          <Tooltip title="Chỉnh sửa">
-                            <Button
-                              type="text"
-                              icon={<EditOutlined className="text-blue-500" />}
-                              onClick={() => {
-                                // Debug question object
-                                console.log(
-                                  "🔍 Debug question object:",
-                                  record.question
-                                );
-                                console.log(
-                                  "🔍 Debug question_id:",
-                                  record.question_id
-                                );
-
-                                // Use question_id from ExamQuestionEntity which is guaranteed to be a valid UUID
-                                if (record.question && record.question_id) {
-                                  // Create a copy of the question object with the correct ID
-                                  const questionWithCorrectId = {
-                                    ...record.question,
-                                    id: record.question_id,
-                                  };
-
-                                  // Show question detail for editing with the correct ID
-                                  prepareQuestionForEditing(record.question_id);
-                                } else {
-                                  message.error(
-                                    "Không thể chỉnh sửa: Thiếu thông tin câu hỏi"
-                                  );
-                                }
-                              }}
-                              className="hover:bg-blue-50 transition-colors duration-300"
-                            />
-                          </Tooltip>
-                          <Tooltip title="Xóa">
-                            <Button
-                              type="text"
-                              danger
-                              icon={<DeleteOutlined />}
-                              onClick={() => {
-                                // Handle remove question from exam
-                                confirm({
-                                  title: "Xác nhận xóa câu hỏi",
-                                  content:
-                                    "Bạn có chắc chắn muốn xóa câu hỏi này khỏi bộ đề?",
-                                  okText: "Xóa",
-                                  okType: "danger",
-                                  cancelText: "Hủy",
-                                  onOk() {
-                                    // Call the function to remove question
-                                    handleRemoveQuestion(
-                                      selectedExamDetail.id,
-                                      record.question_id
-                                    );
-                                  },
-                                });
-                              }}
-                              className="hover:bg-red-50 transition-colors duration-300"
-                            />
-                          </Tooltip>
-                        </Space>
-                      ),
-                    },
-                  ]}
-                />
-              ) : (
-                <div className="text-center text-gray-500 p-4">
-                  Không có câu hỏi nào
-                </div>
+        {/* Exam Detail Drawer */}
+        <Drawer
+          title={
+            <div className="flex items-center">
+              <span className="mr-2">
+                {selectedExamDetail?.title || "Chi tiết bộ đề"}
+              </span>
+              {selectedExamDetail?.active && <Tag color="green">Hoạt động</Tag>}
+              {!selectedExamDetail?.active && (
+                <Tag color="red">Không hoạt động</Tag>
               )}
             </div>
-          </div>
-        ) : (
-          <div className="text-center text-gray-500">Không có dữ liệu</div>
-        )}
-      </Drawer>
-
-      {/* Question Detail Modal */}
-      {selectedQuestion && (
-        <QuestionDetail
-          question={selectedQuestion}
-          isModalVisible={isQuestionDetailVisible}
-          onClose={closeQuestionDetail}
-        />
-      )}
-
-      {/* Question Modal */}
-      <QuestionModal
-        open={isQuestionModalVisible}
-        onCancel={handleQuestionModalCancel}
-        questionId={editingQuestionId || undefined}
-        title={editingQuestionId ? "Chỉnh sửa câu hỏi" : "Thêm câu hỏi mới"}
-        zIndex={1001}
-        refreshData={() => {
-          // If we're in exam detail view, refresh the questions
-          if (selectedExamDetail) {
-            fetchExamDetail(selectedExamDetail.id);
           }
-        }}
-        onSuccess={() => {
-          setIsQuestionModalVisible(false);
-          setEditingQuestionId(null);
-        }}
-        onQuestionCreated={handleQuestionCreated}
-      />
+          placement="right"
+          width={800}
+          onClose={closeExamDetail}
+          open={isDetailDrawerVisible}
+          extra={
+            <Space>
+              <Button onClick={closeExamDetail}>Đóng</Button>
+              {selectedExamDetail && (
+                <Button type="primary" onClick={showEditExamModal}>
+                  Chỉnh sửa
+                </Button>
+              )}
+            </Space>
+          }
+          className="exam-detail-drawer"
+        >
+          {detailLoading ? (
+            <div className="flex justify-center items-center h-full">
+              <Spin size="large" />
+            </div>
+          ) : selectedExamDetail ? (
+            <div className="space-y-6">
+              <div className="bg-gray-50 p-4 rounded-md">
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Text type="secondary">ID bộ đề:</Text>
+                    <div className="font-medium">
+                      {selectedExamDetail.code_id}
+                    </div>
+                  </div>
+                  <div>
+                    <Text type="secondary">Môn học:</Text>
+                    <div>
+                      <Tag color="blue">{selectedExamDetail.subject}</Tag>
+                    </div>
+                  </div>
+                  <div>
+                    <Text type="secondary">Trạng thái:</Text>
+                    <div>
+                      <Tag color={selectedExamDetail.active ? "green" : "red"}>
+                        {selectedExamDetail.active
+                          ? "Hoạt động"
+                          : "Không hoạt động"}
+                      </Tag>
+                    </div>
+                  </div>
+                  <div>
+                    <Text type="secondary">Ngày tạo:</Text>
+                    <div className="font-medium">
+                      {new Date(selectedExamDetail.created_at).toLocaleString(
+                        "vi-VN"
+                      )}
+                    </div>
+                  </div>
+                  <div>
+                    <Text type="secondary">Cập nhật lần cuối:</Text>
+                    <div className="font-medium">
+                      {new Date(selectedExamDetail.updated_at).toLocaleString(
+                        "vi-VN"
+                      )}
+                    </div>
+                  </div>
+                  <div>
+                    <Text type="secondary">Số câu hỏi:</Text>
+                    <div className="font-medium">
+                      {selectedExamDetail.exams_question?.length || 0}
+                    </div>
+                  </div>
+                </div>
+              </div>
 
-      {/* Edit Exam Modal */}
-      <Modal
-        title="Chỉnh sửa bộ đề"
-        open={isEditModalVisible}
-        onCancel={handleEditModalCancel}
-        onOk={() => editExamForm.submit()}
-        confirmLoading={editExamLoading}
-      >
-        <Form form={editExamForm} layout="vertical" onFinish={handleEditExam}>
-          <Form.Item
-            name="title"
-            label="Tên bộ đề"
-            rules={[{ required: true, message: "Vui lòng nhập tên bộ đề!" }]}
-          >
-            <Input placeholder="Nhập tên bộ đề" />
-          </Form.Item>
-          <Form.Item
-            name="active"
-            label="Trạng thái"
-            valuePropName="checked"
-            rules={[{ required: true, message: "Vui lòng chọn trạng thái!" }]}
-          >
-            <Switch />
-          </Form.Item>
-          <Form.Item
-            name="subject"
-            label="Môn học"
-            rules={[{ required: true, message: "Vui lòng chọn môn học!" }]}
-          >
-            <Select placeholder="Chọn môn học">
-              <Select.Option value="Toán">Toán</Select.Option>
-              <Select.Option value="Ngữ văn">Ngữ văn</Select.Option>
-              <Select.Option value="Tiếng Anh">Tiếng Anh</Select.Option>
-              <Select.Option value="Vật lý">Vật lý</Select.Option>
-              <Select.Option value="Hóa học">Hóa học</Select.Option>
-              <Select.Option value="Sinh học">Sinh học</Select.Option>
-              <Select.Option value="Lịch sử">Lịch sử</Select.Option>
-              <Select.Option value="Địa lý">Địa lý</Select.Option>
-              <Select.Option value="GDCD">GDCD</Select.Option>
-            </Select>
-          </Form.Item>
-        </Form>
-      </Modal>
+              {selectedExamDetail.description && (
+                <div>
+                  <Title level={5}>Mô tả</Title>
+                  <div
+                    dangerouslySetInnerHTML={{
+                      __html: selectedExamDetail.description,
+                    }}
+                    className="p-3 bg-gray-50 rounded mt-2"
+                  />
+                </div>
+              )}
+
+              <div>
+                <div className="flex justify-between items-center">
+                  <Title level={5}>Danh sách câu hỏi</Title>
+                  <Space>
+                    <Button
+                      type="primary"
+                      icon={<DatabaseOutlined />}
+                      onClick={handleAddFromRepository}
+                      className="bg-blue-500 hover:bg-blue-600"
+                    >
+                      Thêm từ kho câu hỏi
+                    </Button>
+                    {/* <Button
+                      type="primary"
+                      icon={<PlusOutlined />}
+                      onClick={() => {
+                        // Handle add new question
+                        handleAddNewQuestion();
+                      }}
+                      className="bg-green-500 hover:bg-green-600"
+                    >
+                      Thêm câu hỏi mới
+                    </Button> */}
+                  </Space>
+                </div>
+                {selectedExamDetail.exams_question &&
+                selectedExamDetail.exams_question.length > 0 ? (
+                  <Table
+                    dataSource={selectedExamDetail.exams_question}
+                    rowKey="id"
+                    pagination={false}
+                    className="mt-4"
+                    columns={[
+                      {
+                        title: "STT",
+                        key: "index",
+                        width: 60,
+                        render: (_, __, index) => index + 1,
+                      },
+                      {
+                        title: "Mã câu hỏi",
+                        dataIndex: ["question", "code_id"],
+                        key: "code_id",
+                        width: 120,
+                      },
+                      {
+                        title: "Nội dung câu hỏi",
+                        dataIndex: ["question", "question"],
+                        key: "question",
+                        render: (_, record: ExamQuestionEntity) => (
+                          <div
+                            dangerouslySetInnerHTML={{
+                              __html:
+                                record.question?.question || "Không có nội dung",
+                            }}
+                            className="max-h-20 overflow-y-auto"
+                          />
+                        ),
+                      },
+                      {
+                        title: "Loại câu hỏi",
+                        dataIndex: ["question", "type"],
+                        key: "type",
+                        width: 180,
+                        render: (_, record: ExamQuestionEntity) => {
+                          const type = record.question?.type || "";
+                          let color = "blue";
+                          if (type === "Lựa chọn một đáp án") color = "green";
+                          if (type === "Lựa chọn nhiều đáp án") color = "purple";
+                          if (type === "Đúng/Sai") color = "orange";
+                          if (type === "Nhập đáp án") color = "cyan";
+                          if (type === "Đọc hiểu") color = "magenta";
+
+                          return <Tag color={color}>{type}</Tag>;
+                        },
+                      },
+                      {
+                        title: "Môn học",
+                        dataIndex: ["question", "subject"],
+                        key: "subject",
+                        width: 120,
+                        render: (_, record: ExamQuestionEntity) => {
+                          const subject = record.question?.subject || "";
+                          let color = "blue";
+                          if (subject === "Toán") color = "blue";
+                          if (subject === "Ngữ văn") color = "green";
+                          if (subject === "Tiếng Anh") color = "purple";
+                          if (subject === "Vật lý") color = "orange";
+                          if (subject === "Hóa học") color = "red";
+                          if (subject === "Sinh học") color = "cyan";
+
+                          return <Tag color={color}>{subject}</Tag>;
+                        },
+                      },
+                      {
+                        title: "Thao tác",
+                        key: "action",
+                        width: 120,
+                        render: (_, record: ExamQuestionEntity) => (
+                          <Space>
+                            <Tooltip title="Chi tiết">
+                              <Button
+                                type="text"
+                                icon={<EyeOutlined className="text-green-500" />}
+                                onClick={() => {
+                                  // Show question detail using the new component
+                                  showQuestionDetail(record.question);
+                                }}
+                                className="hover:bg-green-50 transition-colors duration-300"
+                              />
+                            </Tooltip>
+                            <Tooltip title="Chỉnh sửa">
+                              <Button
+                                type="text"
+                                icon={<EditOutlined className="text-blue-500" />}
+                                onClick={() => {
+                                  // Debug question object
+                                  console.log(
+                                    "🔍 Debug question object:",
+                                    record.question
+                                  );
+                                  console.log(
+                                    "🔍 Debug question_id:",
+                                    record.question_id
+                                  );
+
+                                  // Use question_id from ExamQuestionEntity which is guaranteed to be a valid UUID
+                                  if (record.question && record.question_id) {
+                                    // Create a copy of the question object with the correct ID
+                                    const questionWithCorrectId = {
+                                      ...record.question,
+                                      id: record.question_id,
+                                    };
+
+                                    // Show question detail for editing with the correct ID
+                                    prepareQuestionForEditing(record.question_id);
+                                  } else {
+                                    message.error(
+                                      "Không thể chỉnh sửa: Thiếu thông tin câu hỏi"
+                                    );
+                                  }
+                                }}
+                                className="hover:bg-blue-50 transition-colors duration-300"
+                              />
+                            </Tooltip>
+                            <Tooltip title="Xóa">
+                              <Button
+                                type="text"
+                                danger
+                                icon={<DeleteOutlined />}
+                                onClick={() => {
+                                  // Handle remove question from exam
+                                  confirm({
+                                    title: "Xác nhận xóa câu hỏi",
+                                    content:
+                                      "Bạn có chắc chắn muốn xóa câu hỏi này khỏi bộ đề?",
+                                    okText: "Xóa",
+                                    okType: "danger",
+                                    cancelText: "Hủy",
+                                    onOk() {
+                                      // Call the function to remove question
+                                      handleRemoveQuestion(
+                                        selectedExamDetail.id,
+                                        record.question_id
+                                      );
+                                    },
+                                  });
+                                }}
+                                className="hover:bg-red-50 transition-colors duration-300"
+                              />
+                            </Tooltip>
+                          </Space>
+                        ),
+                      },
+                    ]}
+                  />
+                ) : (
+                  <div className="text-center text-gray-500 p-4">
+                    Không có câu hỏi nào
+                  </div>
+                )}
+              </div>
+            </div>
+          ) : (
+            <div className="text-center text-gray-500">Không có dữ liệu</div>
+          )}
+        </Drawer>
+
+        {/* Question Detail Modal */}
+        {selectedQuestion && (
+          <QuestionDetail
+            question={selectedQuestion}
+            isModalVisible={isQuestionDetailVisible}
+            onClose={closeQuestionDetail}
+          />
+        )}
+
+        {/* Question Modal */}
+        <QuestionModal
+          open={isQuestionModalVisible}
+          onCancel={handleQuestionModalCancel}
+          questionId={editingQuestionId || undefined}
+          title={editingQuestionId ? "Chỉnh sửa câu hỏi" : "Thêm câu hỏi mới"}
+          zIndex={1001}
+          refreshData={() => {
+            // If we're in exam detail view, refresh the questions
+            if (selectedExamDetail) {
+              fetchExamDetail(selectedExamDetail.id);
+            }
+          }}
+          onSuccess={() => {
+            setIsQuestionModalVisible(false);
+            setEditingQuestionId(null);
+          }}
+          onQuestionCreated={handleQuestionCreated}
+        />
+
+        {/* Edit Exam Modal */}
+        <Modal
+          title="Chỉnh sửa bộ đề"
+          open={isEditModalVisible}
+          onCancel={handleEditModalCancel}
+          onOk={() => editExamForm.submit()}
+          confirmLoading={editExamLoading}
+        >
+          <Form form={editExamForm} layout="vertical" onFinish={handleEditExam}>
+            <Form.Item
+              name="title"
+              label="Tên bộ đề"
+              rules={[{ required: true, message: "Vui lòng nhập tên bộ đề!" }]}
+            >
+              <Input placeholder="Nhập tên bộ đề" />
+            </Form.Item>
+            <Form.Item
+              name="active"
+              label="Trạng thái"
+              valuePropName="checked"
+              rules={[{ required: true, message: "Vui lòng chọn trạng thái!" }]}
+            >
+              <Switch />
+            </Form.Item>
+            <Form.Item
+              name="subject"
+              label="Môn học"
+              rules={[{ required: true, message: "Vui lòng chọn môn học!" }]}
+            >
+              <Select placeholder="Chọn môn học">
+                <Select.Option value="Toán">Toán</Select.Option>
+                <Select.Option value="Ngữ văn">Ngữ văn</Select.Option>
+                <Select.Option value="Tiếng Anh">Tiếng Anh</Select.Option>
+                <Select.Option value="Vật lý">Vật lý</Select.Option>
+                <Select.Option value="Hóa học">Hóa học</Select.Option>
+                <Select.Option value="Sinh học">Sinh học</Select.Option>
+                <Select.Option value="Lịch sử">Lịch sử</Select.Option>
+                <Select.Option value="Địa lý">Địa lý</Select.Option>
+                <Select.Option value="GDCD">GDCD</Select.Option>
+              </Select>
+            </Form.Item>
+          </Form>
+        </Modal>
+      </Card>
     </>
   );
 };
