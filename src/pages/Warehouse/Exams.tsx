@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Card, Button, Input, Table, message, Select, Pagination, Space, Tooltip, Switch, Form, Drawer, Modal, Checkbox } from 'antd';
+import { Card, Button, Input, Table, message, Select, Pagination, Space, Tooltip, Switch, Form, Drawer, Modal, Checkbox, Tag } from 'antd';
 import { 
   SearchOutlined, 
   ReloadOutlined, 
@@ -10,11 +10,14 @@ import {
   DeleteOutlined,
   PlusCircleOutlined,
   DatabaseOutlined,
-  CloseOutlined
+  CloseOutlined,
+  SyncOutlined
 } from '@ant-design/icons';
 import { getExams, deleteExam, createExam, Exam, ExamsParams, CreateExamRequest, Question } from '../../api/exams';
 import { getQuestions } from '../../api/questions/questionService';
 import { HighSchoolSubjects, QUESTION_TYPE } from '../../components/QuestionModal/QuestionModal';
+import QuestionModal from '../../components/QuestionModal';
+import { createQuestion } from '../../api/questions/questionService';
 
 const { Option } = Select;
 const { confirm } = Modal;
@@ -48,6 +51,10 @@ const Exams: React.FC = () => {
   const [repositoryTotal, setRepositoryTotal] = useState<number>(0);
   const [repositoryCurrentPage, setRepositoryCurrentPage] = useState<number>(1);
   const [repositoryPageSize, setRepositoryPageSize] = useState<number>(10);
+
+  // State for add question modal
+  const [isQuestionModalVisible, setIsQuestionModalVisible] = useState<boolean>(false);
+  const [addQuestionLoading, setAddQuestionLoading] = useState<boolean>(false);
 
   // Fetch exams data
   const fetchExams = async (params: ExamsParams = {}) => {
@@ -213,7 +220,7 @@ const Exams: React.FC = () => {
           setLoading(true);
           await deleteExam(id);
           message.success('Đã xóa bộ đề thành công');
-          fetchExams({ page: 1 });
+          fetchExams();
         } catch (error) {
           console.error(`🔴 Exams handleDelete error for id ${id}:`, error);
           message.error('Failed to delete exam');
@@ -232,6 +239,8 @@ const Exams: React.FC = () => {
   // Handle add exam modal
   const showAddModal = () => {
     setIsAddModalVisible(true);
+    // Đặt giá trị mặc định cho môn học trong modal Thêm từ kho câu hỏi
+    setRepositorySubject("Toán");
   };
 
   const handleAddModalCancel = () => {
@@ -270,6 +279,13 @@ const Exams: React.FC = () => {
 
   // Handle add question from repository
   const handleAddFromRepository = () => {
+    // Lấy giá trị môn học từ form Thêm mới bộ đề
+    const currentSubject = addExamForm.getFieldValue('subject');
+    
+    // Đặt giá trị môn học cho modal Thêm từ kho câu hỏi
+    setRepositorySubject(currentSubject);
+    // setRepositoryQuestionType(currentSubject);
+    
     setIsRepositoryModalVisible(true);
     fetchRepositoryQuestions();
   };
@@ -290,22 +306,39 @@ const Exams: React.FC = () => {
       }
       
       if (repositoryQuestionType) {
-        params.type = repositoryQuestionType;
+        // Convert Lựa chọn một đáp án => AN_ANSWER
+        try {
+          const questionType = Object.values(QUESTION_TYPE).findIndex(type => type === repositoryQuestionType)
+        params.type = Object.keys(QUESTION_TYPE)[questionType]
+        } catch (error) {
+          console.error('🔴 Exams fetchRepositoryQuestions error:', error);
+          message.error('Failed to fetch questions');
+        }
+      }
+
+      
+      try {
+        params.subject = Object.values(HighSchoolSubjects).find(type => type.title === repositorySubject)?.value;
+      } catch (error) {
+        console.error('🔴 Exams fetchRepositoryQuestions error:', error);
+        message.error('Failed to fetch questions');
       }
       
-      if (repositorySubject) {
-        params.subject = repositorySubject;
-      }
+      console.log('Params:', params);
       
       const response = await getQuestions(params);
       
-      // Add index to each question for STT column
-      const indexedData = response.data.data.map((question: any, index: number) => ({
-        ...question,
+      // Transform API response data
+      const transformedData = response.data.data.map((item: any, index: number) => ({
+        id: item.id,
+        code_id: item.code_id,
+        content: item.question,
+        type: item.type,
+        subject: item.subject,
         index: (response.data.pagination.current_page - 1) * response.data.pagination.take + index + 1
       }));
       
-      setRepositoryQuestions(indexedData);
+      setRepositoryQuestions(transformedData);
       setRepositoryTotal(response.data.pagination.total);
       setRepositoryCurrentPage(response.data.pagination.current_page);
       
@@ -316,7 +349,7 @@ const Exams: React.FC = () => {
       setRepositoryLoading(false);
     }
   };
-
+  
   // Handle repository modal cancel
   const handleRepositoryModalCancel = () => {
     setIsRepositoryModalVisible(false);
@@ -325,50 +358,58 @@ const Exams: React.FC = () => {
     setRepositoryQuestionType('');
     setRepositorySubject('');
   };
+  
+  // Call fetchRepositoryQuestions when these states change
+  useEffect(() => {
+    if (isRepositoryModalVisible) {
+      fetchRepositoryQuestions();
+    }
+  }, [repositorySearchText, repositoryQuestionType, repositorySubject, repositoryCurrentPage, repositoryPageSize]);
 
   // Handle repository search
   const handleRepositorySearch = (value: string) => {
     setRepositorySearchText(value);
     setRepositoryCurrentPage(1); // Reset to first page when searching
-    fetchRepositoryQuestions();
+    // fetchRepositoryQuestions();
   };
 
   // Handle repository question type change
   const handleRepositoryQuestionTypeChange = (value: string) => {
     setRepositoryQuestionType(value);
     setRepositoryCurrentPage(1); // Reset to first page when filtering
-    fetchRepositoryQuestions();
+    // fetchRepositoryQuestions();
   };
 
   // Handle repository subject change
   const handleRepositorySubjectChange = (value: string) => {
     setRepositorySubject(value);
     setRepositoryCurrentPage(1); // Reset to first page when filtering
-    fetchRepositoryQuestions();
+    // fetchRepositoryQuestions();
   };
 
   // Handle repository page change
   const handleRepositoryPageChange = (page: number, pageSize?: number) => {
     setRepositoryCurrentPage(page);
     if (pageSize) setRepositoryPageSize(pageSize);
-    fetchRepositoryQuestions();
+    // fetchRepositoryQuestions();
   };
 
   // Handle select all questions
-  const handleSelectAllQuestions = (e: any) => {
-    if (e.target.checked) {
-      setSelectedQuestionIds(repositoryQuestions.map(q => q.id));
+  const handleSelectAllQuestions = (selected: boolean, selectedRows: any[]) => {
+    if (selected) {
+      const selectedIds = selectedRows.map(row => row.id);
+      setSelectedQuestionIds(selectedIds);
     } else {
       setSelectedQuestionIds([]);
     }
   };
 
   // Handle select question
-  const handleSelectQuestion = (id: string, checked: boolean) => {
-    if (checked) {
-      setSelectedQuestionIds([...selectedQuestionIds, id]);
+  const handleSelectQuestion = (record: any, selected: boolean) => {
+    if (selected) {
+      setSelectedQuestionIds(prev => [...prev, record.id]);
     } else {
-      setSelectedQuestionIds(selectedQuestionIds.filter(qId => qId !== id));
+      setSelectedQuestionIds(prev => prev.filter(id => id !== record.id));
     }
   };
 
@@ -381,15 +422,178 @@ const Exams: React.FC = () => {
     
     // Add selected questions to the exam
     const selectedQuestions = repositoryQuestions.filter(q => selectedQuestionIds.includes(q.id));
-    setQuestions(prev => [...prev, ...selectedQuestions]);
     
-    message.success(`Đã thêm ${selectedQuestionIds.length} câu hỏi vào bộ đề`);
+    // Chỉ lấy các thông tin cần thiết để hiển thị trong bảng câu hỏi của bộ đề
+    const questionsToAdd = selectedQuestions.map(q => ({
+      id: q.id,
+      code_id: q.code_id,
+      content: q.content,
+      type: q.type
+    }));
+    
+    setQuestions(prev => {
+      // Lọc ra các câu hỏi chưa có trong danh sách
+      const newQuestions = questionsToAdd.filter(
+        newQ => !prev.some(existingQ => existingQ.id === newQ.id)
+      );
+      
+      if (newQuestions.length === 0) {
+        message.info('Các câu hỏi đã tồn tại trong bộ đề');
+        return prev;
+      }
+      
+      message.success(`Đã thêm ${newQuestions.length} câu hỏi vào bộ đề`);
+      return [...prev, ...newQuestions];
+    });
+    
     handleRepositoryModalCancel();
   };
 
   // Handle add new question
   const handleAddNewQuestion = () => {
-    message.info('Chức năng thêm mới câu hỏi đang được phát triển');
+    setIsQuestionModalVisible(true);
+  };
+
+  // Handle question modal cancel
+  const handleQuestionModalCancel = () => {
+    setIsQuestionModalVisible(false);
+  };
+
+  // Handle add question submit
+  const handleAddQuestion = async (values: any) => {
+    try {
+      setAddQuestionLoading(true);
+
+      // Validate question content
+      if (!values.content || values.content.includes('tox-placeholder') || values.content.trim() === '<p>&nbsp;</p>') {
+        message.error('Please enter question content');
+        setAddQuestionLoading(false);
+        return;
+      }
+
+      const getAnswerLetter = (index: number) => String.fromCharCode(65 + index);
+
+      let options: any[] = [];
+      let answers: string[] = [];
+
+      const answersArray = Array.isArray(values.answers) ? values.answers : [];
+
+      if (values.questionType === 'AN_ANSWER') {
+        // Validate that at least one answer is selected as correct
+        const correctIndex = answersArray.findIndex((a: any) => a.isCorrect);
+        if (correctIndex < 0 && answersArray.length > 0) {
+          message.error('Please select a correct answer');
+          setAddQuestionLoading(false);
+          return;
+        }
+
+        options = answersArray.map((answer: any, index: number) => ({
+          checked: answer.isCorrect,
+          answer: answer.content,
+          value: answer.content,
+          type: getAnswerLetter(index)
+        }));
+
+        if (correctIndex >= 0) {
+          answers = [getAnswerLetter(correctIndex)];
+        }
+      } else if (values.questionType === 'MULTIPLE_ANSWERS') {
+        // Validate that at least one answer is selected as correct for multiple choice
+        const correctAnswers = answersArray.filter((a: any) => a.isCorrect);
+        if (correctAnswers.length === 0 && answersArray.length > 0) {
+          message.error('Please select at least one correct answer');
+          setAddQuestionLoading(false);
+          return;
+        }
+
+        options = answersArray.map((answer: any, index: number) => ({
+          checked: answer.isCorrect,
+          answer: answer.content,
+          value: answer.content,
+          type: getAnswerLetter(index)
+        }));
+
+        answers = answersArray
+          .map((answer: any, index: number) => answer.isCorrect ? getAnswerLetter(index) : null)
+          .filter(Boolean);
+      }
+
+      const questionTypeMap: Record<string, string> = {
+        'AN_ANSWER': 'Lựa chọn một đáp án',
+        'MULTIPLE_ANSWERS': 'Lựa chọn nhiều đáp án',
+        'TRUE_FALSE': 'Đúng/Sai',
+        'ENTER_ANSWER': 'Nhập đáp án',
+        'READ_UNDERSTAND': 'Đọc hiểu'
+      };
+
+      const difficultyMap: Record<string, string> = {
+        'easy': 'easy',
+        'medium': 'normal',
+        'hard': 'hard'
+      };
+
+      const payload = {
+        active: values.active !== undefined ? values.active : true,
+        subject: values.subject,
+        level: difficultyMap[values.difficulty] || 'normal',
+        video: values.embedVideo || values.videoUrl || '',
+        question: values.content,
+        type: questionTypeMap[values.questionType],
+        solution: values.solution || '',
+        options: options.length > 0 ? options : [],
+        answers: answers.length > 0 ? answers : []
+      };
+
+      console.log('📝 Exams handleAddQuestion payload:', payload);
+
+      // Show loading message
+      const loadingMessage = message.loading('Creating new question...', 0);
+
+      try {
+        // Create new question
+        const response = await createQuestion(payload);
+        loadingMessage();
+        
+        // Check if response contains the expected data structure
+        if (!response || !response.id) {
+          console.error('Invalid response from API:', response);
+          message.error('Failed to create question: Invalid response from server');
+          return;
+        }
+        
+        // Log the full response for debugging
+        console.log('📝 Exams API response:', response);
+        
+        message.success('Question created successfully');
+        
+        // Add the new question to the questions list with data from API response
+        const responseData = response as any;
+        
+        // Create a question object for the table
+        // Using type assertion to handle the code_id property
+        const newQuestionForTable = {
+          id: responseData.id,
+          content: responseData.question || values.content,
+          type: responseData.type || questionTypeMap[values.questionType],
+          code_id: responseData.code_id || ''
+        } as Question;
+        
+        // Log the question details for debugging
+        console.log('📝 Exams adding new question to table:', newQuestionForTable);
+        
+        setQuestions(prev => [...prev, newQuestionForTable]);
+        setIsQuestionModalVisible(false);
+      } catch (error) {
+        loadingMessage();
+        console.error('Error creating question:', error);
+        message.error(`Failed to create question: ${(error as any)?.message || 'Unknown error'}`);
+      }
+    } catch (validationError) {
+      console.error('Validation failed:', validationError);
+      message.error('Please check the question information');
+    } finally {
+      setAddQuestionLoading(false);
+    }
   };
 
   // Handle import questions
@@ -397,159 +601,338 @@ const Exams: React.FC = () => {
     message.info('Chức năng import câu hỏi đang được phát triển');
   };
 
+  // Handle subject change in add exam form
+  const handleExamSubjectChange = (value: string) => {
+    // Cập nhật giá trị môn học cho modal Thêm từ kho câu hỏi
+    setRepositorySubject(value);
+  };
+
   // Empty data message
   const emptyText = "Không có dữ liệu!";
 
   return (
-    <Card title="Bộ đề" className="h-full">
-      <div className="flex justify-between mb-4">
-        <div className="flex gap-2">
-          <Input 
-            placeholder="Tìm kiếm" 
-            prefix={<SearchOutlined />} 
-            style={{ width: 250 }}
-            value={searchText}
-            onChange={(e) => setSearchText(e.target.value)}
-            onPressEnter={(e) => handleSearch((e.target as HTMLInputElement).value)}
-          />
-          <Select 
-            value={statusFilter} 
-            onChange={handleStatusChange} 
-            style={{ width: 150 }}
-          >
-            <Option value="">Trạng thái</Option>
-            <Option value="active">Hoạt động</Option>
-            <Option value="inactive">Không hoạt động</Option>
-          </Select>
+    <>
+      <Card title="Bộ đề" className="h-full">
+        <div className="flex justify-between mb-4">
+          <div className="flex gap-2">
+            <Input 
+              placeholder="Tìm kiếm" 
+              prefix={<SearchOutlined />} 
+              style={{ width: 250 }}
+              value={searchText}
+              onChange={(e) => setSearchText(e.target.value)}
+              onPressEnter={(e) => handleSearch((e.target as HTMLInputElement).value)}
+            />
+            <Select 
+              value={statusFilter} 
+              onChange={handleStatusChange} 
+              style={{ width: 150 }}
+            >
+              <Option value="">Trạng thái</Option>
+              <Option value="active">Hoạt động</Option>
+              <Option value="inactive">Không hoạt động</Option>
+            </Select>
+          </div>
+          <div className="flex gap-2">
+            <Button icon={<ReloadOutlined />} onClick={handleRefresh}>Làm mới</Button>
+            <Button type="primary" icon={<PlusOutlined />} onClick={showAddModal}>Thêm đề</Button>
+            <Button icon={<ImportOutlined />} onClick={handleImport}>Import</Button>
+          </div>
         </div>
-        <div className="flex gap-2">
-          <Button icon={<ReloadOutlined />} onClick={handleRefresh}>Làm mới</Button>
-          <Button type="primary" icon={<PlusOutlined />} onClick={showAddModal}>Thêm đề</Button>
-          <Button icon={<ImportOutlined />} onClick={handleImport}>Import</Button>
-        </div>
-      </div>
 
-      <Table
-        columns={columns}
-        dataSource={exams}
-        rowKey="id"
-        loading={loading}
-        pagination={false}
-        locale={{ emptyText }}
-      />
-
-      <div className="flex justify-end mt-4">
-        <Pagination
-          current={currentPage}
-          pageSize={pageSize}
-          total={total}
-          onChange={handlePageChange}
-          showSizeChanger
-          showTotal={(total) => `${total} / page`}
+        <Table
+          columns={columns}
+          dataSource={exams}
+          rowKey="id"
+          loading={loading}
+          pagination={false}
+          locale={{ emptyText }}
         />
-      </div>
 
-      {/* Add Exam Drawer */}
-      <Drawer
-        title="Thêm mới bộ đề"
-        open={isAddModalVisible}
-        onClose={handleAddModalCancel}
-        width={1000}
-        extra={
-          <Space>
-            <Button onClick={handleAddModalCancel}>
-              Hủy
-            </Button>
-            <Button
-              type="primary"
-              loading={addExamLoading}
-              onClick={() => addExamForm.submit()}
-              style={{ backgroundColor: '#22c55e' }}
-            >
-              Lưu
-            </Button>
-          </Space>
-        }
-      >
-        <Form
-          form={addExamForm}
-          layout="vertical"
-          onFinish={handleAddExam}
-          className="bg-gray-50 p-6 rounded-md"
+        <div className="flex justify-end mt-4">
+          <Pagination
+            current={currentPage}
+            pageSize={pageSize}
+            total={total}
+            onChange={handlePageChange}
+            showSizeChanger
+            showTotal={(total) => `${total} / page`}
+          />
+        </div>
+
+        {/* Add Exam Drawer */}
+        <Drawer
+          title="Thêm mới bộ đề"
+          open={isAddModalVisible}
+          onClose={handleAddModalCancel}
+          width={1000}
+          extra={
+            <Space>
+              <Button onClick={handleAddModalCancel}>
+                Hủy
+              </Button>
+              <Button
+                type="primary"
+                loading={addExamLoading}
+                onClick={() => addExamForm.submit()}
+                style={{ backgroundColor: '#22c55e' }}
+              >
+                Lưu
+              </Button>
+            </Space>
+          }
         >
-          <div className="flex items-center justify-between mb-6">
-            <Form.Item
-              name="name"
-              label={<span className="flex items-center"> Tên bộ đề</span>}
-              rules={[{ required: true, message: 'Please input exam name!' }]}
-              className="mb-0 w-3/4"
-            >
-              <Input placeholder="Nhập tên bộ đề" />
+          <Form
+            form={addExamForm}
+            layout="vertical"
+            onFinish={handleAddExam}
+            className="bg-gray-50 p-6 rounded-md"
+          >
+            <div className="flex items-center justify-between mb-6">
+              <Form.Item
+                name="name"
+                label={<span className="flex items-center"> Tên bộ đề</span>}
+                rules={[{ required: true, message: 'Vui lòng nhập tên bộ đề!' }]}
+                className="mb-0 w-3/4"
+              >
+                <Input placeholder="Nhập tên bộ đề" />
+              </Form.Item>
+              
+              <Form.Item name="active" valuePropName="checked" className="mb-0" initialValue={false}>
+                <div className="flex items-center">
+                  <span className="mr-2">Kích hoạt</span>
+                  <Switch defaultChecked />
+                </div>
+              </Form.Item>
+            </div>
+            
+            <Form.Item name="subject" label="Môn học" initialValue="Toán">
+              <Select 
+                placeholder="Chọn môn học"
+                onChange={handleExamSubjectChange}
+              >
+                {HighSchoolSubjects.map(subject => (
+                  <Option key={subject.value} value={subject.title}>
+                    {subject.title}
+                  </Option>
+                ))}
+              </Select>
             </Form.Item>
             
-            <Form.Item name="active" valuePropName="checked" className="mb-0" initialValue={true}>
-              <div className="flex items-center">
-                <span className="mr-2">Kích hoạt</span>
-                <Switch defaultChecked />
+            <div className="mt-8">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-medium">Thêm câu hỏi</h3>
+                <div className="flex gap-2">
+                  <Button 
+                    icon={<DatabaseOutlined />} 
+                    onClick={handleAddFromRepository}
+                  >
+                    Thêm từ kho câu hỏi
+                  </Button>
+                  <Button 
+                    icon={<PlusOutlined />} 
+                    onClick={handleAddNewQuestion}
+                  >
+                    Thêm mới
+                  </Button>
+                  <Button 
+                    icon={<ImportOutlined />} 
+                    onClick={handleImportQuestions}
+                  >
+                    Import
+                  </Button>
+                </div>
               </div>
-            </Form.Item>
-          </div>
-          
-          {/* <Form.Item name="subject" label="Môn học" initialValue="Toan"> */}
-          <Form.Item name="subject" label="Môn học">
-            <Select placeholder="Chọn môn học">
-              {HighSchoolSubjects.map(subject => (
-                <Option key={subject.title} value={subject.title}>
-                  {subject.title}
-                </Option>
-              ))}
-            </Select>
-          </Form.Item>
-          
-          <div className="mt-8">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-medium">Thêm câu hỏi</h3>
-              <div className="flex gap-2">
-                <Button 
-                  icon={<DatabaseOutlined />} 
-                  onClick={handleAddFromRepository}
-                >
-                  Thêm từ kho câu hỏi
-                </Button>
-                <Button 
-                  icon={<PlusOutlined />} 
-                  onClick={handleAddNewQuestion}
-                >
-                  Thêm mới
-                </Button>
-                <Button 
-                  icon={<ImportOutlined />} 
-                  onClick={handleImportQuestions}
-                >
-                  Import
-                </Button>
-              </div>
+              
+              <Table
+                columns={[
+                  {
+                    title: 'STT',
+                    dataIndex: 'index',
+                    key: 'index',
+                    width: 80,
+                    render: (_, __, index) => index + 1
+                  },
+                  {
+                    title: 'Câu hỏi',
+                    dataIndex: 'content',
+                    key: 'content',
+                    render: (content) => (
+                      <div dangerouslySetInnerHTML={{ __html: content || 'Không có nội dung' }} />
+                    ),
+                  },
+                  {
+                    title: 'Loại câu hỏi',
+                    dataIndex: 'type',
+                    key: 'type',
+                    width: 180,
+                    render: (type) => {
+                      let color = 'blue';
+                      if (type === 'Lựa chọn một đáp án') color = 'green';
+                      if (type === 'Lựa chọn nhiều đáp án') color = 'purple';
+                      if (type === 'Đúng/Sai') color = 'orange';
+                      if (type === 'Nhập đáp án') color = 'cyan';
+                      if (type === 'Đọc hiểu') color = 'magenta';
+                      
+                      return <Tag color={color}>{type}</Tag>;
+                    }
+                  },
+                  {
+                    title: 'ID Câu hỏi',
+                    dataIndex: 'code_id',
+                    key: 'code_id',
+                    width: 120,
+                  },
+                  {
+                    title: 'Thao tác',
+                    key: 'actions',
+                    width: 80,
+                    render: (_, record: Question, index) => (
+                      <Button
+                        type="text"
+                        icon={<DeleteOutlined />}
+                        size="small"
+                        className="text-red-500 hover:text-red-700"
+                        onClick={() => {
+                          const newQuestions = [...questions];
+                          newQuestions.splice(index, 1);
+                          setQuestions(newQuestions);
+                        }}
+                      />
+                    )
+                  }
+                ]}
+                dataSource={questions}
+                rowKey="id"
+                pagination={false}
+                locale={{ emptyText: "Không có dữ liệu!" }}
+                className="border border-gray-200 rounded-md"
+              />
+            </div>
+          </Form>
+        </Drawer>
+
+        {/* Question Repository Modal */}
+        <Modal
+          title={<div className="text-xl">Thêm câu hỏi vào bộ đề</div>}
+          open={isRepositoryModalVisible}
+          onCancel={handleRepositoryModalCancel}
+          width={1000}
+          footer={[
+            <Button key="cancel" onClick={handleRepositoryModalCancel}>
+              Hủy
+            </Button>,
+            <Button
+              key="submit"
+              type="primary"
+              onClick={handleConfirmAddQuestions}
+              style={{ backgroundColor: '#22c55e' }}
+            >
+              Xác nhận
+            </Button>,
+          ]}
+          closeIcon={<CloseOutlined />}
+        >
+          <div className="mb-4">
+            <p className="mb-4 text-gray-600">Chọn câu hỏi để thêm vào bộ đề</p>
+            
+            <div className="flex flex-wrap gap-3 mb-4 items-center">
+              <Input 
+                placeholder="Tìm kiếm" 
+                prefix={<SearchOutlined />} 
+                style={{ width: 250 }}
+                value={repositorySearchText}
+                onChange={(e) => setRepositorySearchText(e.target.value)}
+                onPressEnter={(e) => handleRepositorySearch((e.target as HTMLInputElement).value)}
+              />
+              
+              <Select 
+                placeholder="Loại câu hỏi"
+                style={{ width: 200 }}
+                value={repositoryQuestionType}
+                onChange={handleRepositoryQuestionTypeChange}
+                allowClear
+              >
+                {Object.values(QUESTION_TYPE).map(type => (
+                  <Select.Option key={type} value={type}>
+                    {type}
+                  </Select.Option>
+                ))}
+              </Select>
+              
+              <Select 
+                placeholder="Môn học"
+                style={{ width: 200 }}
+                value={repositorySubject}
+                onChange={handleRepositorySubjectChange}
+                allowClear
+              >
+                {HighSchoolSubjects.map(subject => (
+                  <Select.Option key={subject.value} value={subject.title}>
+                    {subject.title}
+                  </Select.Option>
+                ))}
+              </Select>
+              
+              <Button 
+                icon={<SyncOutlined />} 
+                onClick={() => fetchRepositoryQuestions()}
+                loading={repositoryLoading}
+                className="ml-auto"
+              >
+                Làm mới
+              </Button>
             </div>
             
             <Table
+              rowSelection={{
+                type: 'checkbox',
+                selectedRowKeys: selectedQuestionIds,
+                columnWidth: 60,
+                onSelectAll: handleSelectAllQuestions,
+                onSelect: handleSelectQuestion
+              }}
               columns={[
-                {
-                  title: 'STT',
-                  dataIndex: 'index',
-                  key: 'index',
-                  width: 80,
-                  render: (_, __, index) => index + 1
-                },
                 {
                   title: 'Câu hỏi',
                   dataIndex: 'content',
                   key: 'content',
-                  sorter: true,
+                  render: (content) => (
+                    <div dangerouslySetInnerHTML={{ __html: content || 'Không có nội dung' }} />
+                  ),
                 },
                 {
                   title: 'Loại câu hỏi',
                   dataIndex: 'type',
                   key: 'type',
+                  width: 180,
+                  render: (type) => {
+                    let color = 'blue';
+                    if (type === 'Lựa chọn một đáp án') color = 'green';
+                    if (type === 'Lựa chọn nhiều đáp án') color = 'purple';
+                    if (type === 'Đúng/Sai') color = 'orange';
+                    if (type === 'Nhập đáp án') color = 'cyan';
+                    if (type === 'Đọc hiểu') color = 'magenta';
+                    
+                    return <Tag color={color}>{type}</Tag>;
+                  }
+                },
+                {
+                  title: 'Môn học',
+                  dataIndex: 'subject',
+                  key: 'subject',
+                  width: 120,
+                  render: (subject) => {
+                    let color = 'blue';
+                    if (subject === 'Toán') color = 'blue';
+                    if (subject === 'Ngữ văn') color = 'green';
+                    if (subject === 'Tiếng Anh') color = 'purple';
+                    if (subject === 'Vật lý') color = 'orange';
+                    if (subject === 'Hóa học') color = 'red';
+                    if (subject === 'Sinh học') color = 'cyan';
+                    
+                    return <Tag color={color}>{subject}</Tag>;
+                  }
                 },
                 {
                   title: 'ID Câu hỏi',
@@ -557,182 +940,80 @@ const Exams: React.FC = () => {
                   key: 'code_id',
                   width: 120,
                 },
-                {
-                  title: 'Thao tác',
-                  key: 'actions',
-                  width: 80,
-                  render: (_, record: Question, index) => (
-                    <Button
-                      type="text"
-                      icon={<DeleteOutlined />}
-                      size="small"
-                      className="text-red-500 hover:text-red-700"
-                      onClick={() => {
-                        const newQuestions = [...questions];
-                        newQuestions.splice(index, 1);
-                        setQuestions(newQuestions);
-                      }}
-                    />
-                  )
-                }
               ]}
-              dataSource={questions}
+              dataSource={repositoryQuestions}
               rowKey="id"
+              loading={repositoryLoading}
               pagination={false}
               locale={{ emptyText: "Không có dữ liệu!" }}
+              className="border border-gray-200 rounded-md"
+              rowClassName={(record) => selectedQuestionIds.includes(record.id) ? 'bg-green-50' : 'hover:bg-gray-50'}
+              onRow={(record) => ({
+                onClick: () => {
+                  // Toggle selection when clicking on row
+                  if (selectedQuestionIds.includes(record.id)) {
+                    setSelectedQuestionIds(prev => prev.filter(id => id !== record.id));
+                  } else {
+                    setSelectedQuestionIds(prev => [...prev, record.id]);
+                  }
+                },
+                style: { cursor: 'pointer' }
+              })}
             />
+            
+            <div className="flex items-center justify-between mt-4">
+              <div>
+                {repositoryTotal > 0 && (
+                  <span className="text-gray-600">{repositoryCurrentPage} / page</span>
+                )}
+              </div>
+              <div className="flex items-center">
+                <Button 
+                  type="text" 
+                  disabled={repositoryCurrentPage <= 1}
+                  onClick={() => handleRepositoryPageChange(repositoryCurrentPage - 1)}
+                >
+                  &lt;
+                </Button>
+                <Button type="text" className="mx-2 bg-green-500 text-white">
+                  {repositoryCurrentPage}
+                </Button>
+                <Button 
+                  type="text"
+                  disabled={repositoryCurrentPage >= Math.ceil(repositoryTotal / repositoryPageSize)}
+                  onClick={() => handleRepositoryPageChange(repositoryCurrentPage + 1)}
+                >
+                  &gt;
+                </Button>
+                
+                <Select
+                  className="ml-4"
+                  value={`${repositoryPageSize} / page`}
+                  style={{ width: 120 }}
+                  onChange={(value) => {
+                    const newPageSize = parseInt(value.split(' ')[0]);
+                    setRepositoryPageSize(newPageSize);
+                    handleRepositoryPageChange(1, newPageSize);
+                  }}
+                >
+                  <Select.Option value="10 / page">10 / page</Select.Option>
+                  <Select.Option value="20 / page">20 / page</Select.Option>
+                  <Select.Option value="50 / page">50 / page</Select.Option>
+                </Select>
+              </div>
+            </div>
           </div>
-        </Form>
-      </Drawer>
+        </Modal>
+      </Card>
 
-      {/* Question Repository Modal */}
-      <Modal
-        title="Thêm câu hỏi vào bộ đề"
-        open={isRepositoryModalVisible}
-        onCancel={handleRepositoryModalCancel}
-        width={1000}
-        footer={[
-          <Button key="cancel" onClick={handleRepositoryModalCancel}>
-            Hủy
-          </Button>,
-          <Button
-            key="submit"
-            type="primary"
-            onClick={handleConfirmAddQuestions}
-            style={{ backgroundColor: '#22c55e' }}
-          >
-            Xác nhận
-          </Button>,
-        ]}
-        closeIcon={<CloseOutlined />}
-      >
-        <div className="mb-4">
-          <p className="mb-4">Chọn câu hỏi để thêm vào bộ đề</p>
-          
-          <div className="flex gap-2 mb-4">
-            <Input 
-              placeholder="Tìm kiếm" 
-              prefix={<SearchOutlined />} 
-              style={{ width: 250 }}
-              value={repositorySearchText}
-              onChange={(e) => setRepositorySearchText(e.target.value)}
-              onPressEnter={(e) => handleRepositorySearch((e.target as HTMLInputElement).value)}
-            />
-            
-            <Select 
-              placeholder="Loại câu hỏi"
-              style={{ width: 200 }}
-              value={repositoryQuestionType}
-              onChange={handleRepositoryQuestionTypeChange}
-              allowClear
-            >
-              {Object.values(QUESTION_TYPE).map(type => (
-                <Select.Option key={type} value={type}>
-                  {type}
-                </Select.Option>
-              ))}
-            </Select>
-            
-            <Select 
-              placeholder="Môn học"
-              style={{ width: 200 }}
-              value={repositorySubject}
-              onChange={handleRepositorySubjectChange}
-              allowClear
-            >
-              {HighSchoolSubjects.map(subject => (
-                <Select.Option key={subject.value} value={subject.value}>
-                  {subject.title}
-                </Select.Option>
-              ))}
-            </Select>
-          </div>
-          
-          <Table
-            rowSelection={{
-              type: 'checkbox',
-              selectedRowKeys: selectedQuestionIds,
-              onSelectAll: handleSelectAllQuestions,
-              onSelect: (record, selected) => handleSelectQuestion(record.id, selected)
-            }}
-            columns={[
-              {
-                title: '',
-                dataIndex: 'selection',
-                key: 'selection',
-                width: 50,
-                render: () => null // Cột này chỉ để hiển thị checkbox từ rowSelection
-              },
-              {
-                title: 'Câu hỏi',
-                dataIndex: 'content',
-                key: 'content',
-                render: (content) => content || 'Không có nội dung',
-              },
-              {
-                title: 'Loại câu hỏi',
-                dataIndex: 'type',
-                key: 'type',
-                width: 180,
-              },
-              {
-                title: 'ID Câu hỏi',
-                dataIndex: 'code_id',
-                key: 'code_id',
-                width: 120,
-              },
-            ]}
-            dataSource={repositoryQuestions}
-            rowKey="id"
-            loading={repositoryLoading}
-            pagination={false}
-            locale={{ emptyText: "Không có dữ liệu!" }}
-          />
-          
-          <div className="flex items-center justify-between mt-4">
-            <div>
-              {repositoryTotal > 0 && (
-                <span>{repositoryCurrentPage} / page</span>
-              )}
-            </div>
-            <div className="flex items-center">
-              <Button 
-                type="text" 
-                disabled={repositoryCurrentPage <= 1}
-                onClick={() => handleRepositoryPageChange(repositoryCurrentPage - 1)}
-              >
-                &lt;
-              </Button>
-              <Button type="text" className="mx-2 bg-green-500 text-white">
-                {repositoryCurrentPage}
-              </Button>
-              <Button 
-                type="text"
-                disabled={repositoryCurrentPage >= Math.ceil(repositoryTotal / repositoryPageSize)}
-                onClick={() => handleRepositoryPageChange(repositoryCurrentPage + 1)}
-              >
-                &gt;
-              </Button>
-              
-              <Select
-                className="ml-4"
-                value={`${repositoryPageSize} / page`}
-                style={{ width: 120 }}
-                onChange={(value) => {
-                  const newPageSize = parseInt(value.split(' ')[0]);
-                  setRepositoryPageSize(newPageSize);
-                  handleRepositoryPageChange(1, newPageSize);
-                }}
-              >
-                <Select.Option value="10 / page">10 / page</Select.Option>
-                <Select.Option value="20 / page">20 / page</Select.Option>
-                <Select.Option value="50 / page">50 / page</Select.Option>
-              </Select>
-            </div>
-          </div>
-        </div>
-      </Modal>
-    </Card>
+      {/* Question Modal */}
+      <QuestionModal
+        open={isQuestionModalVisible}
+        onCancel={handleQuestionModalCancel}
+        onSubmit={handleAddQuestion}
+        title="Add New Question"
+      />
+    </>
   );
 };
 
