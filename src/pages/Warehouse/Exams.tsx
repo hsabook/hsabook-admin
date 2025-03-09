@@ -946,6 +946,7 @@ const Exams: React.FC = () => {
           open={isAddModalVisible}
           onClose={handleAddModalCancel}
           width={1000}
+          zIndex={1000}
           extra={
             <Space>
               <Button onClick={handleAddModalCancel}>
@@ -1552,6 +1553,7 @@ const Exams: React.FC = () => {
         onSubmit={handleAddQuestion}
         title={editingQuestion ? "Chỉnh sửa câu hỏi" : "Thêm câu hỏi mới"}
         initialValues={editingQuestion}
+        zIndex={1001}
       />
 
       {/* Edit Exam Modal */}

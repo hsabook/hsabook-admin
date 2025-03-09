@@ -62,6 +62,7 @@ interface QuestionModalProps {
   onSubmit: (values: any) => void;
   initialValues?: any;
   title?: string;
+  zIndex?: number;
 }
 
 const QuestionModal: React.FC<QuestionModalProps> = ({
@@ -69,7 +70,8 @@ const QuestionModal: React.FC<QuestionModalProps> = ({
   onCancel,
   onSubmit,
   initialValues,
-  title = 'Thêm mới câu hỏi'
+  title = 'Thêm mới câu hỏi',
+  zIndex
 }) => {
   const [form] = Form.useForm();
   const [videoType, setVideoType] = useState<'upload' | 'embed' | null>(null);
@@ -414,6 +416,7 @@ const QuestionModal: React.FC<QuestionModalProps> = ({
         padding: '10px 24px'
       }}
       extra={null} // Remove the extra buttons from header
+      zIndex={zIndex}
     >
       <Form
         form={form}
