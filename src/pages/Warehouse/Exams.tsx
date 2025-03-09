@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Card, Button, Input, Table, message, Select, Pagination, Space, Tooltip, Switch, Form, Drawer, Modal, Checkbox, Tag } from 'antd';
+import { Card, Button, Input, Table, message, Select, Pagination, Space, Tooltip, Switch, Form, Drawer, Modal, Checkbox, Tag, Spin, Typography } from 'antd';
 import { 
   SearchOutlined, 
   ReloadOutlined, 
@@ -18,9 +18,52 @@ import { getQuestions } from '../../api/questions/questionService';
 import { HighSchoolSubjects, QUESTION_TYPE } from '../../components/QuestionModal/QuestionModal';
 import QuestionModal from '../../components/QuestionModal';
 import { createQuestion } from '../../api/questions/questionService';
+import axios from 'axios';
+import { useAuthStore } from '../../store/authStore';
+import QuestionDetail from '../../components/QuestionDetail';
+import QuestionContent from '../../components/QuestionDetail/QuestionContent';
+
+// Define interfaces for question detail
+interface QuestionOption {
+  type: string;
+  value: string;
+  answer: string;
+  checked: boolean;
+}
+
+interface QuestionEntity {
+  id: string;
+  code_id: string;
+  question: string;
+  type: string;
+  solution: string;
+  options: QuestionOption[];
+  answers: string[];
+  subject: string;
+  level: string;
+  active: boolean;
+  status: string;
+  created_at: string;
+  updated_at: string;
+  video?: string;
+}
+
+// Define interfaces for exam detail
+interface ExamQuestionEntity {
+  id: string;
+  exam_id: string;
+  question_id: string;
+  score: number | null;
+  question: QuestionEntity;
+}
+
+interface ExamDetail extends Exam {
+  exams_question: ExamQuestionEntity[];
+}
 
 const { Option } = Select;
 const { confirm } = Modal;
+const { Title, Text, Paragraph } = Typography;
 
 const Exams: React.FC = () => {
   // State for managing exams data
@@ -56,6 +99,15 @@ const Exams: React.FC = () => {
   const [isQuestionModalVisible, setIsQuestionModalVisible] = useState<boolean>(false);
   const [addQuestionLoading, setAddQuestionLoading] = useState<boolean>(false);
 
+  // State for exam detail drawer
+  const [isDetailDrawerVisible, setIsDetailDrawerVisible] = useState<boolean>(false);
+  const [selectedExamDetail, setSelectedExamDetail] = useState<ExamDetail | null>(null);
+  const [detailLoading, setDetailLoading] = useState<boolean>(false);
+  
+  // State for question detail modal
+  const [isQuestionDetailVisible, setIsQuestionDetailVisible] = useState<boolean>(false);
+  const [selectedQuestion, setSelectedQuestion] = useState<QuestionEntity | null>(null);
+
   // Fetch exams data
   const fetchExams = async (params: ExamsParams = {}) => {
     try {
@@ -90,6 +142,42 @@ const Exams: React.FC = () => {
   useEffect(() => {
     fetchExams();
   }, []);
+
+  // Fetch exam detail
+  const fetchExamDetail = async (examId: string) => {
+    try {
+      setDetailLoading(true);
+      const response = await axios.get(`https://hsabook-backend-dev.up.railway.app/exams/${examId}`, {
+        headers: {
+          'accept': 'application/json',
+          'authorization': `Bearer ${useAuthStore.getState().accessToken}`
+        }
+      });
+      
+      if (response.data && response.data.data) {
+        setSelectedExamDetail(response.data.data);
+      } else {
+        message.error('Failed to fetch exam details');
+      }
+    } catch (error) {
+      console.error('🔴 Exams fetchExamDetail error:', error);
+      message.error('Failed to fetch exam details');
+    } finally {
+      setDetailLoading(false);
+    }
+  };
+
+  // Show exam detail drawer
+  const showExamDetail = (examId: string) => {
+    setIsDetailDrawerVisible(true);
+    fetchExamDetail(examId);
+  };
+
+  // Close exam detail drawer
+  const closeExamDetail = () => {
+    setIsDetailDrawerVisible(false);
+    setSelectedExamDetail(null);
+  };
 
   // Table columns configuration
   const columns = [
@@ -147,33 +235,39 @@ const Exams: React.FC = () => {
     },
     {
       title: 'Thao tác',
-      key: 'actions',
-      width: 120,
+      key: 'action',
+      width: 150,
       render: (_: any, record: Exam) => (
-        <Space size="middle">
+        <Space size="small">
           <Tooltip title="Xem chi tiết">
-            <Button 
-              type="text" 
-              icon={<EyeOutlined />} 
-              size="small" 
-              className="text-blue-500 hover:text-blue-700"
+            <Button
+              type="text"
+              icon={<EyeOutlined />}
+              onClick={(e) => {
+                e.stopPropagation();
+                showExamDetail(record.id);
+              }}
             />
           </Tooltip>
           <Tooltip title="Chỉnh sửa">
-            <Button 
-              type="text" 
-              icon={<EditOutlined />} 
-              size="small"
-              className="text-green-500 hover:text-green-700" 
+            <Button
+              type="text"
+              icon={<EditOutlined />}
+              onClick={(e) => {
+                e.stopPropagation();
+                // Handle edit
+              }}
             />
           </Tooltip>
           <Tooltip title="Xóa">
-            <Button 
-              type="text" 
-              icon={<DeleteOutlined />} 
-              size="small" 
-              className="text-red-500 hover:text-red-700"
-              onClick={() => handleDelete(record.id)}
+            <Button
+              type="text"
+              danger
+              icon={<DeleteOutlined />}
+              onClick={(e) => {
+                e.stopPropagation();
+                handleDelete(record.id);
+              }}
             />
           </Tooltip>
         </Space>
@@ -610,6 +704,25 @@ const Exams: React.FC = () => {
   // Empty data message
   const emptyText = "Không có dữ liệu!";
 
+  // Show question detail
+  const showQuestionDetail = (question: any) => {
+    // Add required fields for QuestionEntity if they don't exist
+    const enhancedQuestion: QuestionEntity = {
+      ...question,
+      created_at: question.created_at || new Date().toISOString(),
+      updated_at: question.updated_at || new Date().toISOString()
+    };
+    
+    setSelectedQuestion(enhancedQuestion);
+    setIsQuestionDetailVisible(true);
+  };
+
+  // Close question detail
+  const closeQuestionDetail = () => {
+    setIsQuestionDetailVisible(false);
+    setSelectedQuestion(null);
+  };
+
   return (
     <>
       <Card title="Bộ đề" className="h-full">
@@ -757,8 +870,11 @@ const Exams: React.FC = () => {
                     title: 'Câu hỏi',
                     dataIndex: 'content',
                     key: 'content',
-                    render: (content) => (
-                      <div dangerouslySetInnerHTML={{ __html: content || 'Không có nội dung' }} />
+                    render: (content: string) => (
+                      <div 
+                        dangerouslySetInnerHTML={{ __html: content || 'Không có nội dung' }} 
+                        className="max-h-20 overflow-y-auto"
+                      />
                     ),
                   },
                   {
@@ -766,7 +882,7 @@ const Exams: React.FC = () => {
                     dataIndex: 'type',
                     key: 'type',
                     width: 180,
-                    render: (type) => {
+                    render: (type: string) => {
                       let color = 'blue';
                       if (type === 'Lựa chọn một đáp án') color = 'green';
                       if (type === 'Lựa chọn nhiều đáp án') color = 'purple';
@@ -897,8 +1013,11 @@ const Exams: React.FC = () => {
                   title: 'Câu hỏi',
                   dataIndex: 'content',
                   key: 'content',
-                  render: (content) => (
-                    <div dangerouslySetInnerHTML={{ __html: content || 'Không có nội dung' }} />
+                  render: (content: string) => (
+                    <div 
+                      dangerouslySetInnerHTML={{ __html: content || 'Không có nội dung' }} 
+                      className="max-h-20 overflow-y-auto"
+                    />
                   ),
                 },
                 {
@@ -906,7 +1025,7 @@ const Exams: React.FC = () => {
                   dataIndex: 'type',
                   key: 'type',
                   width: 180,
-                  render: (type) => {
+                  render: (type: string) => {
                     let color = 'blue';
                     if (type === 'Lựa chọn một đáp án') color = 'green';
                     if (type === 'Lựa chọn nhiều đáp án') color = 'purple';
@@ -922,7 +1041,7 @@ const Exams: React.FC = () => {
                   dataIndex: 'subject',
                   key: 'subject',
                   width: 120,
-                  render: (subject) => {
+                  render: (subject: string) => {
                     let color = 'blue';
                     if (subject === 'Toán') color = 'blue';
                     if (subject === 'Ngữ văn') color = 'green';
@@ -1005,6 +1124,231 @@ const Exams: React.FC = () => {
           </div>
         </Modal>
       </Card>
+
+      {/* Exam Detail Drawer */}
+      <Drawer
+        title={
+          <div className="flex items-center">
+            <span className="mr-2">{selectedExamDetail?.title || 'Chi tiết bộ đề'}</span>
+            {selectedExamDetail?.active && (
+              <Tag color="green">Hoạt động</Tag>
+            )}
+            {!selectedExamDetail?.active && (
+              <Tag color="red">Không hoạt động</Tag>
+            )}
+          </div>
+        }
+        placement="right"
+        width={800}
+        onClose={closeExamDetail}
+        open={isDetailDrawerVisible}
+        extra={
+          <Space>
+            <Button onClick={closeExamDetail}>Đóng</Button>
+            {selectedExamDetail && (
+              <Button type="primary" onClick={() => {
+                // Handle edit exam
+              }}>
+                Chỉnh sửa
+              </Button>
+            )}
+          </Space>
+        }
+        className="exam-detail-drawer"
+      >
+        {detailLoading ? (
+          <div className="flex justify-center items-center h-full">
+            <Spin size="large" />
+          </div>
+        ) : selectedExamDetail ? (
+          <div className="space-y-6">
+            <div className="bg-gray-50 p-4 rounded-md">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Text type="secondary">ID bộ đề:</Text>
+                  <div className="font-medium">{selectedExamDetail.code_id}</div>
+                </div>
+                <div>
+                  <Text type="secondary">Môn học:</Text>
+                  <div>
+                    <Tag color="blue">{selectedExamDetail.subject}</Tag>
+                  </div>
+                </div>
+                <div>
+                  <Text type="secondary">Trạng thái:</Text>
+                  <div>
+                    <Tag color={selectedExamDetail.active ? "green" : "red"}>
+                      {selectedExamDetail.active ? "Hoạt động" : "Không hoạt động"}
+                    </Tag>
+                  </div>
+                </div>
+                <div>
+                  <Text type="secondary">Ngày tạo:</Text>
+                  <div className="font-medium">
+                    {new Date(selectedExamDetail.created_at).toLocaleString('vi-VN')}
+                  </div>
+                </div>
+                <div>
+                  <Text type="secondary">Cập nhật lần cuối:</Text>
+                  <div className="font-medium">
+                    {new Date(selectedExamDetail.updated_at).toLocaleString('vi-VN')}
+                  </div>
+                </div>
+                <div>
+                  <Text type="secondary">Số câu hỏi:</Text>
+                  <div className="font-medium">
+                    {selectedExamDetail.exams_question?.length || 0}
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {selectedExamDetail.description && (
+              <div>
+                <Title level={5}>Mô tả</Title>
+                <div 
+                  dangerouslySetInnerHTML={{ __html: selectedExamDetail.description }} 
+                  className="p-3 bg-gray-50 rounded mt-2"
+                />
+              </div>
+            )}
+
+            <div>
+              <div className="flex justify-between items-center">
+                <Title level={5}>Danh sách câu hỏi</Title>
+                <Button 
+                  type="primary" 
+                  icon={<PlusOutlined />}
+                  onClick={() => {
+                    // Handle add question to exam
+                  }}
+                >
+                  Thêm câu hỏi
+                </Button>
+              </div>
+              {selectedExamDetail.exams_question && selectedExamDetail.exams_question.length > 0 ? (
+                <Table
+                  dataSource={selectedExamDetail.exams_question}
+                  rowKey="id"
+                  pagination={false}
+                  className="mt-4"
+                  columns={[
+                    {
+                      title: 'STT',
+                      key: 'index',
+                      width: 60,
+                      render: (_, __, index) => index + 1,
+                    },
+                    {
+                      title: 'Mã câu hỏi',
+                      dataIndex: ['question', 'code_id'],
+                      key: 'code_id',
+                      width: 120,
+                    },
+                    {
+                      title: 'Nội dung câu hỏi',
+                      dataIndex: ['question', 'question'],
+                      key: 'question',
+                      render: (_, record: ExamQuestionEntity) => (
+                        <div 
+                          dangerouslySetInnerHTML={{ __html: record.question?.question || 'Không có nội dung' }} 
+                          className="max-h-20 overflow-y-auto"
+                        />
+                      ),
+                    },
+                    {
+                      title: 'Loại câu hỏi',
+                      dataIndex: ['question', 'type'],
+                      key: 'type',
+                      width: 180,
+                      render: (_, record: ExamQuestionEntity) => {
+                        const type = record.question?.type || '';
+                        let color = 'blue';
+                        if (type === 'Lựa chọn một đáp án') color = 'green';
+                        if (type === 'Lựa chọn nhiều đáp án') color = 'purple';
+                        if (type === 'Đúng/Sai') color = 'orange';
+                        if (type === 'Nhập đáp án') color = 'cyan';
+                        if (type === 'Đọc hiểu') color = 'magenta';
+                        
+                        return <Tag color={color}>{type}</Tag>;
+                      }
+                    },
+                    {
+                      title: 'Môn học',
+                      dataIndex: ['question', 'subject'],
+                      key: 'subject',
+                      width: 120,
+                      render: (_, record: ExamQuestionEntity) => {
+                        const subject = record.question?.subject || '';
+                        let color = 'blue';
+                        if (subject === 'Toán') color = 'blue';
+                        if (subject === 'Ngữ văn') color = 'green';
+                        if (subject === 'Tiếng Anh') color = 'purple';
+                        if (subject === 'Vật lý') color = 'orange';
+                        if (subject === 'Hóa học') color = 'red';
+                        if (subject === 'Sinh học') color = 'cyan';
+                        
+                        return <Tag color={color}>{subject}</Tag>;
+                      }
+                    },
+                    {
+                      title: 'Thao tác',
+                      key: 'action',
+                      width: 120,
+                      render: (_, record: ExamQuestionEntity) => (
+                        <Space>
+                          <Button 
+                            type="link" 
+                            onClick={() => {
+                              // Show question detail using the new component
+                              showQuestionDetail(record.question);
+                            }}
+                          >
+                            Chi tiết
+                          </Button>
+                          <Button 
+                            type="link" 
+                            danger
+                            onClick={() => {
+                              // Handle remove question from exam
+                              confirm({
+                                title: 'Xác nhận xóa câu hỏi',
+                                content: 'Bạn có chắc chắn muốn xóa câu hỏi này khỏi bộ đề?',
+                                okText: 'Xóa',
+                                okType: 'danger',
+                                cancelText: 'Hủy',
+                                onOk() {
+                                  // Handle remove question
+                                  message.success('Đã xóa câu hỏi khỏi bộ đề');
+                                },
+                              });
+                            }}
+                          >
+                            Xóa
+                          </Button>
+                        </Space>
+                      ),
+                    },
+                  ]}
+                />
+              ) : (
+                <div className="text-center text-gray-500 p-4">Không có câu hỏi nào</div>
+              )}
+            </div>
+          </div>
+        ) : (
+          <div className="text-center text-gray-500">Không có dữ liệu</div>
+        )}
+      </Drawer>
+
+      {/* Question Detail Modal */}
+      {selectedQuestion && (
+        <QuestionDetail
+          question={selectedQuestion}
+          isModalVisible={isQuestionDetailVisible}
+          onClose={closeQuestionDetail}
+        />
+      )}
 
       {/* Question Modal */}
       <QuestionModal
