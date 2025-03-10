@@ -1010,9 +1010,9 @@ const Exams: React.FC = () => {
         // Refresh exams list
         fetchExams();
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error("🔴 Exams handleEditExam error:", error);
-      message.error("Không thể cập nhật bộ đề");
+      message.error(error.response.data.message as any);
     } finally {
       setEditExamLoading(false);
     }
@@ -1815,7 +1815,7 @@ const Exams: React.FC = () => {
                 )}
               </div>
               <div className="mt-1 text-gray-500 text-sm">
-                Hỗ trợ: .docx, .xlsx, .xls, .csv
+                Hỗ trợ: .docx
               </div>
             </Form.Item>
           </Form>
