@@ -108,11 +108,6 @@ const Exams: React.FC = () => {
     fetchExams();
   }, [fetchExams]);
 
-  // Handle import
-  const handleImport = () => {
-    message.info("Import functionality not implemented yet");
-  };
-
   // Handle edit exam with selected exam
   const handleEditExamWithId = async (values: any) => {
     if (selectedExamDetail) {
@@ -168,7 +163,6 @@ const Exams: React.FC = () => {
           onShowDetail={showExamDetail}
           onShowAddModal={showAddModal}
           onShowEditModal={showEditExamModal}
-          onImport={handleImport}
           fetchExams={fetchExams}
         />
       </Card>

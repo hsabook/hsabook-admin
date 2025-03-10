@@ -39,7 +39,6 @@ interface ExamListProps {
   onShowDetail: (examId: string) => void;
   onShowAddModal: () => void;
   onShowEditModal: (exam: Exam) => void;
-  onImport: () => void;
   fetchExams: (params?: ExamsParams) => Promise<void>;
 }
 
@@ -58,7 +57,6 @@ const ExamList: React.FC<ExamListProps> = ({
   onShowDetail,
   onShowAddModal,
   onShowEditModal,
-  onImport,
   fetchExams,
 }) => {
   // Handle delete exam
@@ -207,9 +205,6 @@ const ExamList: React.FC<ExamListProps> = ({
             onClick={onShowAddModal}
           >
             Add Exam
-          </Button>
-          <Button icon={<ImportOutlined />} onClick={onImport}>
-            Import
           </Button>
         </div>
       </div>

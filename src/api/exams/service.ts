@@ -58,12 +58,16 @@ export const getExamById = async (id: string): Promise<Exam> => {
 // Create a new exam
 export const createExam = async (examData: Partial<CreateExamRequest>): Promise<Exam> => {
   try {
+    console.log('📤 ExamsService createExam request data:', examData);
+    
     const response = await axios.post(`${API_URL}/exams`, examData, {
       headers: {
         'Content-Type': 'application/json',
         ...getAuthHeaders()
       }
     });
+    
+    console.log('📥 ExamsService createExam response:', response.data);
     
     return response.data.data;
   } catch (error) {
@@ -75,12 +79,16 @@ export const createExam = async (examData: Partial<CreateExamRequest>): Promise<
 // Update an existing exam
 export const updateExam = async (id: string, examData: Partial<CreateExamRequest>): Promise<Exam> => {
   try {
+    console.log(`📤 ExamsService updateExam request for id ${id}:`, examData);
+    
     const response = await axios.put(`${API_URL}/exams/${id}`, examData, {
       headers: {
         'Content-Type': 'application/json',
         ...getAuthHeaders()
       }
     });
+    
+    console.log(`📥 ExamsService updateExam response for id ${id}:`, response.data);
     
     return response.data.data;
   } catch (error) {

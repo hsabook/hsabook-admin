@@ -198,7 +198,7 @@ const ExamDetailComponent: React.FC<ExamDetailProps> = ({
         closable={true}
         onClose={onClose}
         open={visible}
-        width={1000}
+        width="80%"
       >
         {loading || localLoading ? (
           <div className="flex justify-center items-center h-full">

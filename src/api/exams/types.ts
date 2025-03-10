@@ -34,6 +34,7 @@ export interface CreateExamRequest {
   active: boolean;
   subject: string;
   questions: { id: string }[];
+  file_upload?: string | null;
 }
 
 export interface ApiResponse<T> {

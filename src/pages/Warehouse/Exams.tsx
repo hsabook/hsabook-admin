@@ -13,10 +13,10 @@ import {
   Form,
   Drawer,
   Modal,
-  Checkbox,
   Tag,
   Spin,
   Typography,
+  Upload,
 } from "antd";
 import {
   SearchOutlined,
@@ -25,13 +25,13 @@ import {
   ImportOutlined,
   EditOutlined,
   DeleteOutlined,
-  PlusCircleOutlined,
   DatabaseOutlined,
   CloseOutlined,
   SyncOutlined,
   EyeOutlined,
   UploadOutlined,
   CopyOutlined,
+  CheckCircleOutlined,
 } from "@ant-design/icons";
 import {
   getExams,
@@ -46,6 +46,7 @@ import {
   addQuestionToExam,
   getExamById,
   updateExamQuestions,
+  importExams,
 } from "../../api/exams";
 import { getQuestions } from "../../api/questions/questionService";
 import {
@@ -58,6 +59,7 @@ import { useAuthStore } from "../../store/authStore";
 import QuestionDetail from "../../components/QuestionDetail";
 import CONFIG_APP from "../../utils/config";
 import QuestionRepositoryDrawer from "./QuestionRepositoryDrawer";
+import { uploadFile } from "../../api/upload/uploadService";
 
 // Define interfaces for question detail
 interface QuestionOption {
@@ -103,8 +105,8 @@ const { Title, Text, Paragraph } = Typography;
 
 const Exams: React.FC = () => {
   // State for managing exams data
-  const [loading, setLoading] = useState<boolean>(false);
   const [exams, setExams] = useState<Exam[]>([]);
+  const [loading, setLoading] = useState<boolean>(false);
   const [total, setTotal] = useState<number>(0);
   const [currentPage, setCurrentPage] = useState<number>(1);
   const [pageSize, setPageSize] = useState<number>(10);
@@ -165,19 +167,26 @@ const Exams: React.FC = () => {
   // State for confirm loading
   const [confirmLoading, setConfirmLoading] = useState<boolean>(false);
 
+  // State for force update
+  const [forceUpdate, setForceUpdate] = useState<Record<string, any>>({});
+
+  // Refs
+  const fileUploadRef = React.useRef<any>(null);
+
   // Fetch exams data
   const fetchExams = async (params: ExamsParams = {}) => {
     try {
       setLoading(true);
       const response = await getExams({
-        page: currentPage,
-        take: pageSize,
-        search: searchText,
-        status: statusFilter,
-        ...params,
+        page: params.page || currentPage,
+        take: params.take || pageSize,
+        search: params.search !== undefined ? params.search : searchText,
+        status: params.status !== undefined ? params.status : statusFilter,
       });
 
-      // Add index to each exam for STT column
+      console.log("📥 Exams fetchExams response:", response);
+
+      // Add index to each exam for display
       const indexedData = response.data.map((exam, index) => ({
         ...exam,
         index: (response.page - 1) * response.limit + index + 1,
@@ -214,14 +223,14 @@ const Exams: React.FC = () => {
         }
       );
 
+      console.log(`📥 Exams fetchExamDetail response for id ${examId}:`, response.data);
+
       if (response.data && response.data.data) {
         setSelectedExamDetail(response.data.data);
-      } else {
-        message.error("Failed to fetch exam details");
       }
     } catch (error) {
-      console.error("🔴 Exams fetchExamDetail error:", error);
-      message.error("Failed to fetch exam details");
+      console.error(`🔴 Exams fetchExamDetail error for id ${examId}:`, error);
+      message.error("Failed to fetch exam detail");
     } finally {
       setDetailLoading(false);
     }
@@ -243,39 +252,41 @@ const Exams: React.FC = () => {
   const handleToggleActive = async (record: Exam, checked: boolean) => {
     // Store original active state for potential rollback
     const originalActiveState = record.active;
-    
+
     try {
       // Update local state immediately for better UX
-      const updatedExams = exams.map(exam => {
+      const updatedExams = exams.map((exam) => {
         if (exam.id === record.id) {
           return { ...exam, active: checked };
         }
         return exam;
       });
       setExams(updatedExams);
-      
+
       // Create a minimal update payload with just the active status
       const updateData = {
-        active: checked
+        active: checked,
       };
-      
+
       // Call API to update exam with minimal data
       await updateExam(record.id, updateData);
-      
+
       // Success message
-      message.success(`${record.title} ${checked ? 'Đã kích hoạt' : 'Đã tắt'} thành công`);
+      message.success(
+        `${record.title} ${checked ? "Đã kích hoạt" : "Đã tắt"} thành công`
+      );
     } catch (error) {
       console.error("🔴 Exams handleToggleActive error:", error);
-      
+
       // Revert the local state change
-      const revertedExams = exams.map(exam => {
+      const revertedExams = exams.map((exam) => {
         if (exam.id === record.id) {
           return { ...exam, active: originalActiveState };
         }
         return exam;
       });
       setExams(revertedExams);
-      
+
       // Show error message
       message.error("Không thể cập nhật trạng thái bộ đề");
     }
@@ -299,24 +310,33 @@ const Exams: React.FC = () => {
       title: "Trạng thái",
       dataIndex: "active",
       key: "active",
-      render: (active: boolean, record: Exam) => (
-        <div className="flex items-center">
-          <Switch
-            checked={active}
-            onChange={(checked) => handleToggleActive(record, checked)}
-            // className="mr-2"
-            size="small"
-            // style={{ minWidth: '36px', height: '18px' }}
-          />
-          {/* <span
-            className={`px-2 py-1 rounded text-xs ${
-              active ? "bg-green-100 text-green-800" : "bg-gray-100 text-gray-800"
-            }`}
-          >
-            {active ? "Hoạt động" : "Không hoạt động"}
-          </span> */}
-        </div>
-      ),
+      render: (active: boolean, record: Exam) => {
+        const isDocxToHtml =
+          record.file_upload && record.status_exam === "docx_to_html";
+          
+        const isDocWainting =
+          record.file_upload && record.status_exam === "await";
+
+        return (
+          <div className="flex items-center justify-center">
+            {isDocWainting ? (
+              <Tag color="blue" icon={<SyncOutlined spin />} style={{ padding: '4px 8px', borderRadius: '4px', fontWeight: 'bold' }}>
+                Chờ xử lý
+              </Tag>
+            ) : isDocxToHtml ? (
+              <Tag color="blue" icon={<SyncOutlined spin />} style={{ padding: '4px 8px', borderRadius: '4px', fontWeight: 'bold' }}>
+                Docx to html
+              </Tag>
+            ) : (
+              <Switch
+                checked={active}
+                onChange={(checked) => handleToggleActive(record, checked)}
+                size="small"
+              />
+            )}
+          </div>
+        );
+      },
     },
     {
       title: "ID bộ đề",
@@ -328,9 +348,9 @@ const Exams: React.FC = () => {
           <Tooltip title="Copy ID">
             <Button
               type="text"
-              icon={<CopyOutlined style={{ fontSize: '14px' }} />}
+              icon={<CopyOutlined style={{ fontSize: "14px" }} />}
               size="small"
-              style={{ padding: '0 4px', height: '22px' }}
+              style={{ padding: "0 4px", height: "22px" }}
               onClick={(e) => {
                 e.stopPropagation();
                 navigator.clipboard.writeText(code_id);
@@ -338,6 +358,24 @@ const Exams: React.FC = () => {
               }}
             />
           </Tooltip>
+        </div>
+      ),
+    },
+    {
+      title: "File",
+      dataIndex: "file_upload",
+      key: "file_upload",
+      render: (file_upload: string | null) => (
+        <div className="flex items-center justify-center">
+          {file_upload ? (
+            <Tooltip title="Đã upload file">
+              <CheckCircleOutlined style={{ color: '#52c41a', fontSize: '16px' }} />
+            </Tooltip>
+          ) : (
+            <Tooltip title="Chưa upload file">
+              <CloseOutlined style={{ color: '#ff4d4f', fontSize: '16px' }} />
+            </Tooltip>
+          )}
         </div>
       ),
     },
@@ -375,9 +413,9 @@ const Exams: React.FC = () => {
           <Tooltip title="Chỉnh sửa">
             <Button
               type="text"
-              icon={<EditOutlined style={{ fontSize: '14px' }} />}
+              icon={<EditOutlined style={{ fontSize: "14px" }} />}
               size="small"
-              style={{ padding: '0 4px', height: '22px' }}
+              style={{ padding: "0 4px", height: "22px" }}
               onClick={(e) => {
                 e.stopPropagation();
                 showExamDetail(record.id);
@@ -388,9 +426,9 @@ const Exams: React.FC = () => {
             <Button
               type="text"
               danger
-              icon={<DeleteOutlined style={{ fontSize: '14px' }} />}
+              icon={<DeleteOutlined style={{ fontSize: "14px" }} />}
               size="small"
-              style={{ padding: '0 4px', height: '22px' }}
+              style={{ padding: "0 4px", height: "22px" }}
               onClick={(e) => {
                 e.stopPropagation();
                 handleDelete(record.id);
@@ -464,11 +502,6 @@ const Exams: React.FC = () => {
     });
   };
 
-  // Handle import
-  const handleImport = () => {
-    message.info("Chức năng import đang được phát triển");
-  };
-
   // Handle add exam modal
   const showAddModal = () => {
     setIsAddModalVisible(true);
@@ -492,11 +525,14 @@ const Exams: React.FC = () => {
         active: values.active || false,
         subject: values.subject || "Toán",
         questions: questions.map((q) => ({ id: q.id })),
+        file_upload: values.file_upload || null,
       };
 
-      console.log("Payload gửi lên:", newExam);
+      console.log("📤 Exams handleAddExam payload:", newExam);
 
-      await createExam(newExam);
+      const result = await createExam(newExam);
+      console.log("📥 Exams handleAddExam response:", result);
+      
       message.success("Thêm bộ đề thành công");
       setIsAddModalVisible(false);
       addExamForm.resetFields();
@@ -671,30 +707,36 @@ const Exams: React.FC = () => {
       // If we're in exam detail view, update the exam with new questions
       if (selectedExamDetail) {
         setConfirmLoading(true);
-        
+
         // Get current question IDs
-        const currentQuestionIds = selectedExamDetail.exams_question.map(q => q.question_id);
-        
+        const currentQuestionIds = selectedExamDetail.exams_question.map(
+          (q) => q.question_id
+        );
+
         // Add new question IDs (avoid duplicates)
-        const updatedQuestionIds = [...new Set([...currentQuestionIds, ...selectedQuestionIds])];
-        
+        const updatedQuestionIds = [
+          ...new Set([...currentQuestionIds, ...selectedQuestionIds]),
+        ];
+
         // Prepare data for API
         const examData = {
           title: selectedExamDetail.title,
           active: selectedExamDetail.active,
           subject: selectedExamDetail.subject,
-          questions: updatedQuestionIds.map(id => ({ id }))
+          questions: updatedQuestionIds.map((id) => ({ id })),
         };
 
         // Call API to update exam
         const response = await updateExam(selectedExamDetail.id, examData);
 
         if (response) {
-          message.success(`Đã thêm ${selectedQuestionIds.length} câu hỏi vào bộ đề`);
-          
+          message.success(
+            `Đã thêm ${selectedQuestionIds.length} câu hỏi vào bộ đề`
+          );
+
           // Refresh exam detail
           fetchExamDetail(selectedExamDetail.id);
-          
+
           // Close modal
           handleRepositoryModalCancel();
         }
@@ -819,7 +861,12 @@ const Exams: React.FC = () => {
 
   // Handle import questions
   const handleImportQuestions = () => {
-    message.info("Chức năng import câu hỏi đang được phát triển");
+    // Kích hoạt nút upload file thông qua ref
+    if (fileUploadRef.current) {
+      fileUploadRef.current.upload.uploader.onClick();
+    } else {
+      message.error("Không tìm thấy nút upload file");
+    }
   };
 
   // Handle subject change in add exam form
@@ -871,7 +918,7 @@ const Exams: React.FC = () => {
         // const updatedQuestionIds = selectedExamDetail.exams_question
         //   .filter(q => q.question_id !== questionId)
         //   .map(q => q.question_id);
-        
+
         // Prepare data for API
         // const examData = {
         //   title: selectedExamDetail.title,
@@ -885,7 +932,7 @@ const Exams: React.FC = () => {
 
         if (response) {
           message.success("Đã xóa câu hỏi khỏi bộ đề");
-          
+
           // Refresh exam detail
           fetchExamDetail(examId);
         } else {
@@ -910,7 +957,11 @@ const Exams: React.FC = () => {
         title: selectedExamDetail.title,
         active: selectedExamDetail.active,
         subject: selectedExamDetail.subject,
+        file_upload: selectedExamDetail.file_upload,
       });
+
+      // Force form to re-render to show the uploaded file info
+      setForceUpdate({});
 
       setIsEditModalVisible(true);
     }
@@ -937,10 +988,14 @@ const Exams: React.FC = () => {
         questions: selectedExamDetail.exams_question.map((q) => ({
           id: q.question_id,
         })),
+        file_upload: values.file_upload || selectedExamDetail.file_upload,
       };
+
+      console.log("📤 Exams handleEditExam payload:", examData);
 
       // Call API to update exam
       const response = await updateExam(selectedExamDetail.id, examData);
+      console.log("📥 Exams handleEditExam response:", response);
 
       if (response) {
         message.success("Cập nhật bộ đề thành công");
@@ -998,9 +1053,6 @@ const Exams: React.FC = () => {
               onClick={showAddModal}
             >
               Thêm đề
-            </Button>
-            <Button icon={<ImportOutlined />} onClick={handleImport}>
-              Import
             </Button>
           </div>
         </div>
@@ -1090,6 +1142,92 @@ const Exams: React.FC = () => {
               </Select>
             </Form.Item>
 
+            <Form.Item name="file_upload" label="Upload file">
+              <div className="flex items-center">
+                <Upload
+                  name="file"
+                  accept=".docx,.xlsx,.xls,.csv"
+                  showUploadList={false}
+                  beforeUpload={async (file) => {
+                    try {
+                      // Show loading message
+                      const loadingMessage = message.loading('Đang upload file...', 0);
+                      
+                      // Check if this is an import operation (from Import button)
+                      const isImportOperation = file.name.endsWith('.xlsx') || 
+                                               file.name.endsWith('.xls') || 
+                                               file.name.endsWith('.csv');
+                      
+                      if (isImportOperation) {
+                        try {
+                          // Import the file using the API
+                          await importExams(file);
+                          loadingMessage();
+                          message.success('Import bộ đề thành công');
+                          // Refresh the exams list
+                          fetchExams();
+                        } catch (importError: any) {
+                          loadingMessage();
+                          console.error('🔴 Exams import error:', importError);
+                          
+                          // Display error message from backend if available
+                          if (importError.response && importError.response.data && importError.response.data.message) {
+                            message.error(importError.response.data.message);
+                          } else {
+                            message.error('Import bộ đề thất bại');
+                          }
+                        }
+                      } else {
+                        // Upload file using the uploadFile API
+                        const url = await uploadFile(file);
+                        
+                        // Close loading message
+                        loadingMessage();
+                        
+                        // Set the file_upload value in the form
+                        addExamForm.setFieldsValue({ file_upload: url });
+                        
+                        // Show success message with filename
+                        message.success(`Upload file ${file.name} thành công`);
+                        
+                        // Force form to re-render to show the uploaded file info
+                        setForceUpdate({});
+                        
+                        console.log('File uploaded successfully:', url);
+                      }
+                    } catch (error) {
+                      console.error('🔴 Upload file error:', error);
+                      message.error('Upload file thất bại');
+                    }
+                    return false;
+                  }}
+                  ref={fileUploadRef}
+                >
+                  <Button icon={<UploadOutlined />}>Chọn file</Button>
+                </Upload>
+                {addExamForm.getFieldValue('file_upload') && (
+                  <div className="ml-4 flex items-center">
+                    <CheckCircleOutlined className="text-green-500 mr-2" />
+                    <span className="text-green-500">File đã được tải lên</span>
+                    <Button 
+                      type="text" 
+                      icon={<CloseOutlined />} 
+                      size="small"
+                      className="ml-2"
+                      onClick={() => {
+                        addExamForm.setFieldsValue({ file_upload: null });
+                        // Force form to re-render
+                        setForceUpdate({});
+                      }}
+                    />
+                  </div>
+                )}
+              </div>
+              <div className="mt-1 text-gray-500 text-sm">
+                Hỗ trợ: .docx
+              </div>
+            </Form.Item>
+
             <div className="mt-8">
               <div className="flex items-center justify-between mb-4">
                 <h3 className="text-lg font-medium">Thêm câu hỏi</h3>
@@ -1106,12 +1244,14 @@ const Exams: React.FC = () => {
                   >
                     Thêm mới
                   </Button>
-                  <Button
-                    icon={<ImportOutlined />}
-                    onClick={handleImportQuestions}
-                  >
-                    Import
-                  </Button>
+                  {/* {!addExamForm.getFieldValue('file_upload') && (
+                    <Button
+                      icon={<ImportOutlined />}
+                      onClick={handleImportQuestions}
+                    >
+                      Import
+                    </Button>
+                  )} */}
                 </div>
               </div>
 
@@ -1228,7 +1368,7 @@ const Exams: React.FC = () => {
             </div>
           }
           placement="right"
-          width={800}
+          width="80%"
           onClose={closeExamDetail}
           open={isDetailDrawerVisible}
           extra={
@@ -1295,6 +1435,21 @@ const Exams: React.FC = () => {
                       {selectedExamDetail.exams_question?.length || 0}
                     </div>
                   </div>
+                  {selectedExamDetail.file_upload && (
+                    <div>
+                      <Text type="secondary">File đã upload:</Text>
+                      <div className="font-medium">
+                        <a 
+                          href={selectedExamDetail.file_upload} 
+                          target="_blank" 
+                          rel="noopener noreferrer"
+                          className="text-blue-500 hover:text-blue-700 flex items-center"
+                        >
+                          <UploadOutlined className="mr-1" /> Xem file
+                        </a>
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
 
@@ -1363,7 +1518,8 @@ const Exams: React.FC = () => {
                           <div
                             dangerouslySetInnerHTML={{
                               __html:
-                                record.question?.question || "Không có nội dung",
+                                record.question?.question ||
+                                "Không có nội dung",
                             }}
                             className="max-h-20 overflow-y-auto"
                           />
@@ -1378,7 +1534,8 @@ const Exams: React.FC = () => {
                           const type = record.question?.type || "";
                           let color = "blue";
                           if (type === "Lựa chọn một đáp án") color = "green";
-                          if (type === "Lựa chọn nhiều đáp án") color = "purple";
+                          if (type === "Lựa chọn nhiều đáp án")
+                            color = "purple";
                           if (type === "Đúng/Sai") color = "orange";
                           if (type === "Nhập đáp án") color = "cyan";
                           if (type === "Đọc hiểu") color = "magenta";
@@ -1413,7 +1570,9 @@ const Exams: React.FC = () => {
                             <Tooltip title="Chi tiết">
                               <Button
                                 type="text"
-                                icon={<EyeOutlined className="text-green-500" />}
+                                icon={
+                                  <EyeOutlined className="text-green-500" />
+                                }
                                 onClick={() => {
                                   // Show question detail using the new component
                                   showQuestionDetail(record.question);
@@ -1424,7 +1583,9 @@ const Exams: React.FC = () => {
                             <Tooltip title="Chỉnh sửa">
                               <Button
                                 type="text"
-                                icon={<EditOutlined className="text-blue-500" />}
+                                icon={
+                                  <EditOutlined className="text-blue-500" />
+                                }
                                 onClick={() => {
                                   // Debug question object
                                   console.log(
@@ -1445,7 +1606,9 @@ const Exams: React.FC = () => {
                                     };
 
                                     // Show question detail for editing with the correct ID
-                                    prepareQuestionForEditing(record.question_id);
+                                    prepareQuestionForEditing(
+                                      record.question_id
+                                    );
                                   } else {
                                     message.error(
                                       "Không thể chỉnh sửa: Thiếu thông tin câu hỏi"
@@ -1567,6 +1730,93 @@ const Exams: React.FC = () => {
                 <Select.Option value="Địa lý">Địa lý</Select.Option>
                 <Select.Option value="GDCD">GDCD</Select.Option>
               </Select>
+            </Form.Item>
+            <Form.Item
+              name="file_upload"
+              label="Upload file"
+            >
+              <div className="flex items-center">
+                <Upload
+                  name="file"
+                  accept=".docx,.xlsx,.xls,.csv"
+                  showUploadList={false}
+                  beforeUpload={async (file) => {
+                    try {
+                      // Show loading message
+                      const loadingMessage = message.loading('Đang upload file...', 0);
+                      
+                      // Check if this is an import operation (from Import button)
+                      const isImportOperation = file.name.endsWith('.xlsx') || 
+                                               file.name.endsWith('.xls') || 
+                                               file.name.endsWith('.csv');
+                      
+                      if (isImportOperation) {
+                        try {
+                          // Import the file using the API
+                          await importExams(file);
+                          loadingMessage();
+                          message.success('Import bộ đề thành công');
+                          // Refresh the exams list
+                          fetchExams();
+                        } catch (importError: any) {
+                          loadingMessage();
+                          console.error('🔴 Exams import error:', importError);
+                          
+                          // Display error message from backend if available
+                          if (importError.response && importError.response.data && importError.response.data.message) {
+                            message.error(importError.response.data.message);
+                          } else {
+                            message.error('Import bộ đề thất bại');
+                          }
+                        }
+                      } else {
+                        // Upload file using the uploadFile API
+                        const url = await uploadFile(file);
+                        
+                        // Close loading message
+                        loadingMessage();
+                        
+                        // Set the file_upload value in the form
+                        editExamForm.setFieldsValue({ file_upload: url });
+                        
+                        // Show success message with filename
+                        message.success(`Upload file ${file.name} thành công`);
+                        
+                        // Force form to re-render to show the uploaded file info
+                        setForceUpdate({});
+                        
+                        console.log('File uploaded successfully:', url);
+                      }
+                    } catch (error) {
+                      console.error('🔴 Upload file error:', error);
+                      message.error('Upload file thất bại');
+                    }
+                    return false;
+                  }}
+                >
+                  <Button icon={<UploadOutlined />}>Chọn file</Button>
+                </Upload>
+                {editExamForm.getFieldValue('file_upload') && (
+                  <div className="ml-4 flex items-center">
+                    <CheckCircleOutlined className="text-green-500 mr-2" />
+                    <span className="text-green-500">File đã được tải lên</span>
+                    <Button 
+                      type="text" 
+                      icon={<CloseOutlined />} 
+                      size="small"
+                      className="ml-2"
+                      onClick={() => {
+                        editExamForm.setFieldsValue({ file_upload: null });
+                        // Force form to re-render
+                        setForceUpdate({});
+                      }}
+                    />
+                  </div>
+                )}
+              </div>
+              <div className="mt-1 text-gray-500 text-sm">
+                Hỗ trợ: .docx, .xlsx, .xls, .csv
+              </div>
             </Form.Item>
           </Form>
         </Modal>
