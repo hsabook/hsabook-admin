@@ -4,6 +4,8 @@ export interface AddChapterFormValues {
   cover?: any;
   active: boolean;
   active_code_id: boolean;
+  duration?: number;
+  question_count?: number;
   videos?: any[];
   files?: any[];
 }

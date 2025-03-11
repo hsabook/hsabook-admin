@@ -55,21 +55,27 @@ const BookMenuTable: React.FC<BookMenuTableProps> = ({
   const columns: ColumnsType<MenuBook> = [
     {
       title: 'STT',
-      width: 70,
+      width: 60,
       align: 'center',
       render: (_: any, _record: any, index: number) => index + 1,
     },
     {
       title: 'Ảnh bìa',
       dataIndex: 'cover',
-      width: 100,
+      width: 130,
       render: (cover: string) => (
-        <div className="flex items-center justify-center w-[80px] h-[60px]">
+        <div className="flex items-center justify-center w-[130px] h-[75px] overflow-hidden">
           {cover ? (
             <Image
               src={cover}
               alt="Cover"
-              className="max-w-full max-h-full object-contain rounded-lg"
+              className="w-full h-full object-contain rounded-lg"
+              style={{ 
+                maxHeight: '75px', 
+                maxWidth: '130px',
+                width: 'auto',
+                height: 'auto'
+              }}
               preview={{
                 mask: 'Xem',
                 maskClassName: 'rounded-lg',
@@ -86,7 +92,8 @@ const BookMenuTable: React.FC<BookMenuTableProps> = ({
     {
       title: 'Loại',
       dataIndex: 'type',
-      width: 120,
+      width: 100,
+      align: 'center',
       render: (type: string) => {
         const types = {
           'DE': { text: 'Đề', color: 'purple' },
@@ -95,7 +102,7 @@ const BookMenuTable: React.FC<BookMenuTableProps> = ({
         };
         const typeInfo = types[type as keyof typeof types] || { text: type, color: 'default' };
         return (
-          <Tag color={typeInfo.color} className="rounded-full px-3">
+          <Tag color={typeInfo.color} className="rounded-full px-3 text-center">
             {typeInfo.text}
           </Tag>
         );
@@ -114,7 +121,7 @@ const BookMenuTable: React.FC<BookMenuTableProps> = ({
       width: 120,
       render: (id: string) => (
         <Space>
-          <span>{id}</span>
+          <span className="font-mono text-gray-600">{id}</span>
           <Button
             type="text"
             icon={<CopyOutlined className="text-gray-400 hover:text-gray-600" />}
@@ -128,8 +135,9 @@ const BookMenuTable: React.FC<BookMenuTableProps> = ({
       title: 'Trạng thái',
       dataIndex: 'active',
       width: 120,
+      align: 'center',
       render: (active: boolean) => (
-        <Tag color={active ? 'success' : 'error'} className="rounded-full">
+        <Tag color={active ? 'success' : 'error'} className="rounded-full px-3 text-center">
           {active ? 'Đã kích hoạt' : 'Chưa kích hoạt'}
         </Tag>
       ),
@@ -138,15 +146,20 @@ const BookMenuTable: React.FC<BookMenuTableProps> = ({
       title: 'Cập nhật',
       dataIndex: 'updated_at',
       width: 180,
-      render: (date: string) => new Date(date).toLocaleString(),
+      render: (date: string) => (
+        <span className="text-gray-600">
+          {new Date(date).toLocaleString()}
+        </span>
+      ),
     },
     {
       title: '',
       key: 'actions',
-      width: 150,
+      width: 140,
       fixed: 'right',
+      align: 'center',
       render: (_: any, record: MenuBook) => (
-        <Space>
+        <Space size="small">
           {record.type === 'CHUONG' && (onAddChapter || onAddExam) && (
             <Dropdown
               menu={{ items: getAddMenuItems(record) }}
@@ -155,7 +168,7 @@ const BookMenuTable: React.FC<BookMenuTableProps> = ({
             >
               <Button 
                 type="text" 
-                icon={<PlusOutlined />}
+                icon={<PlusOutlined className="text-blue-500" />}
               />
             </Dropdown>
           )}
@@ -163,13 +176,13 @@ const BookMenuTable: React.FC<BookMenuTableProps> = ({
             <Tooltip title="Tải xuống">
               <Button 
                 type="text" 
-                icon={<FileTextOutlined />}
+                icon={<FileTextOutlined className="text-green-500" />}
                 onClick={() => window.open(record.exam.file_download)}
               />
             </Tooltip>
           )}
           <Tooltip title="Sửa">
-            <Button type="text" icon={<EditOutlined />} />
+            <Button type="text" icon={<EditOutlined className="text-blue-500" />} />
           </Tooltip>
           <Tooltip title="Xóa">
             <Button 
@@ -201,6 +214,9 @@ const BookMenuTable: React.FC<BookMenuTableProps> = ({
       }}
       className="ant-table-striped"
       scroll={{ x: 1200 }}
+      rowClassName={(record, index) => 
+        `${index % 2 === 0 ? 'bg-white' : 'bg-gray-50'} hover:bg-blue-50 transition-colors duration-200`
+      }
     />
   );
 };

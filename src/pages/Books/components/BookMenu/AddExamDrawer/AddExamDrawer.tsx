@@ -1,10 +1,14 @@
 import React from 'react';
-import { Drawer, Form, Input, Switch, Button, Space, Alert } from 'antd';
+import { Drawer, Form, Input, Switch, Button, Space, Alert, Divider, Typography } from 'antd';
 import RichTextEditor from '../../../../../components/RichTextEditor';
 import CoverUpload from '../AddChapterDrawer/CoverUpload';
 import ExamUpload from './ExamUpload';
+import VideoUpload from '../AddChapterDrawer/VideoUpload';
+import FileUpload from '../AddChapterDrawer/FileUpload';
 import type { AddExamFormValues } from './types';
 import type { MenuBook } from '../../../../../api/menu-book/types';
+
+const { Title } = Typography;
 
 interface AddExamDrawerProps {
   open: boolean;
@@ -66,8 +70,11 @@ const AddExamDrawer: React.FC<AddExamDrawerProps> = ({
         initialValues={{
           active: false,
           active_code_id: true,
+          difficulty: 'medium',
         }}
       >
+        {/* Section 1: Basic Information */}
+        <Title level={5} className="mb-4">Thông tin cơ bản</Title>
         <div className="flex gap-8">
           {/* Left side - Cover Upload */}
           <Form.Item
@@ -108,23 +115,42 @@ const AddExamDrawer: React.FC<AddExamDrawerProps> = ({
           </div>
         </div>
 
-        {/* Rich Text Content */}
+        <Divider className="my-6" />
+
+        {/* Section 3: Content */}
+        <Title level={5} className="mb-4">Nội dung</Title>
         <Form.Item
           name="content"
-          label={<span className="text-base">Nội dung</span>}
+          label={<span className="text-base">Mô tả</span>}
         >
           <RichTextEditor
-            placeholder="Nhập nội dung..."
-            className="min-h-[300px]"
+            placeholder="Nhập nội dung mô tả..."
+            className="min-h-[200px]"
           />
         </Form.Item>
 
-        {/* Exam Upload Section */}
+        <Divider className="my-6" />
+
+        {/* Section 4: Exam Upload */}
+        <Title level={5} className="mb-4">Tài liệu bài thi</Title>
         <Form.Item 
           name="exam"
           label={<span className="text-base">Đính kèm bộ đề</span>}
         >
           <ExamUpload />
+        </Form.Item>
+
+        {/* Section 5: Additional Resources */}
+        <Title level={5} className="mb-4 mt-8">Tài nguyên bổ sung</Title>
+        
+        {/* Video Upload Section */}
+        <Form.Item name="videos">
+          <VideoUpload />
+        </Form.Item>
+
+        {/* File Upload Section */}
+        <Form.Item name="files">
+          <FileUpload />
         </Form.Item>
       </Form>
     </Drawer>
