@@ -10,4 +10,13 @@ export interface AddExamFormValues {
   exam?: any;
   videos?: any[];
   files?: any[];
+  
+  // Additional fields required by API
+  book_id?: string;
+  type?: 'DE' | 'BAI' | 'CHUONG';
+  description?: string;
+  video?: string;
+  attached?: any[];
+  exam_id?: string;
+  parent_id?: string;
 }

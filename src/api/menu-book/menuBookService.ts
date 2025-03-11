@@ -11,10 +11,27 @@ export const getMenuBooks = async (params: GetMenuBookParams): Promise<MenuBookR
 };
 
 export const createMenuBook = async (payload: CreateMenuBookPayload): Promise<any> => {
-  return await api('/menu-book', {
-    method: 'POST',
-    body: JSON.stringify(payload),
-  });
+  // Ensure video and attached are never null
+  const safePayload = {
+    ...payload,
+    video: payload.video || '',
+    attached: Array.isArray(payload.attached) ? payload.attached : [],
+  };
+  
+  console.log('🔍 Debug - API payload:', JSON.stringify(safePayload, null, 2));
+  
+  try {
+    const response = await api('/menu-book', {
+      method: 'POST',
+      body: JSON.stringify(safePayload),
+    });
+    
+    console.log('✅ createMenuBook - API response:', response);
+    return response;
+  } catch (error) {
+    console.error('❌ createMenuBook - API error:', error);
+    throw error;
+  }
 };
 
 export const deleteMenuBook = async (id: string): Promise<void> => {

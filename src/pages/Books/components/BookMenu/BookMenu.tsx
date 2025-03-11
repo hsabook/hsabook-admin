@@ -34,7 +34,12 @@ const BookMenu: React.FC = () => {
   const [parentChapter, setParentChapter] = useState<MenuBook | null>(null);
   
   const { isSubmitting: isSubmittingChapter, handleSubmit: handleChapterSubmit } = useChapterSubmit(id || '');
-  const { isSubmitting: isSubmittingExam, handleSubmit: handleExamSubmit } = useExamSubmit(id || '');
+  const { loading: isSubmittingExam, handleSubmit: handleExamSubmit } = useExamSubmit({ 
+    bookId: id || '',
+    onSuccess: () => {
+      refetch();
+    }
+  });
 
   const handleDeleteMenuBook = (menuBook: MenuBook) => {
     setSelectedMenuBook(menuBook);
@@ -71,11 +76,17 @@ const BookMenu: React.FC = () => {
   };
 
   const handleAddExam = async (values: AddExamFormValues) => {
-    const success = await handleExamSubmit(values, parentChapter?.id);
-    if (success) {
+    try {
+      // Pass parent_id if parentChapter exists
+      await handleExamSubmit({
+        ...values,
+        parent_id: parentChapter?.id
+      });
+      
       setIsAddExamDrawerOpen(false);
       setParentChapter(null);
-      refetch();
+    } catch (error) {
+      console.error('Failed to add exam:', error);
     }
   };
 
@@ -145,6 +156,7 @@ const BookMenu: React.FC = () => {
         onSubmit={handleAddExam}
         loading={isSubmittingExam}
         parentChapter={parentChapter}
+        bookId={id || ''}
       />
     </div>
   );

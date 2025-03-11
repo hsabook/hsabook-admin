@@ -55,16 +55,17 @@ const BookMenuTable: React.FC<BookMenuTableProps> = ({
   const columns: ColumnsType<MenuBook> = [
     {
       title: 'STT',
-      width: 60,
+      width: 70,
       align: 'center',
       render: (_: any, _record: any, index: number) => index + 1,
     },
     {
       title: 'Ảnh bìa',
       dataIndex: 'cover',
-      width: 130,
+      width: 150,
+      align: 'center',
       render: (cover: string) => (
-        <div className="flex items-center justify-center w-[130px] h-[75px] overflow-hidden">
+        <div className="flex items-center justify-center w-[130px] h-[75px] overflow-hidden mx-auto">
           {cover ? (
             <Image
               src={cover}
@@ -102,7 +103,7 @@ const BookMenuTable: React.FC<BookMenuTableProps> = ({
         };
         const typeInfo = types[type as keyof typeof types] || { text: type, color: 'default' };
         return (
-          <Tag color={typeInfo.color} className="rounded-full px-3 text-center">
+          <Tag color={typeInfo.color} className="rounded-full px-4 py-1 text-center min-w-[80px] flex items-center justify-center">
             {typeInfo.text}
           </Tag>
         );
@@ -119,6 +120,7 @@ const BookMenuTable: React.FC<BookMenuTableProps> = ({
       title: 'ID',
       dataIndex: 'code_id',
       width: 120,
+      align: 'center',
       render: (id: string) => (
         <Space>
           <span className="font-mono text-gray-600">{id}</span>
@@ -134,10 +136,10 @@ const BookMenuTable: React.FC<BookMenuTableProps> = ({
     {
       title: 'Trạng thái',
       dataIndex: 'active',
-      width: 120,
+      width: 130,
       align: 'center',
       render: (active: boolean) => (
-        <Tag color={active ? 'success' : 'error'} className="rounded-full px-3 text-center">
+        <Tag color={active ? 'success' : 'error'} className="rounded-full px-3 py-1 text-center min-w-[100px] flex items-center justify-center">
           {active ? 'Đã kích hoạt' : 'Chưa kích hoạt'}
         </Tag>
       ),
@@ -146,6 +148,7 @@ const BookMenuTable: React.FC<BookMenuTableProps> = ({
       title: 'Cập nhật',
       dataIndex: 'updated_at',
       width: 180,
+      align: 'center',
       render: (date: string) => (
         <span className="text-gray-600">
           {new Date(date).toLocaleString()}
@@ -155,11 +158,11 @@ const BookMenuTable: React.FC<BookMenuTableProps> = ({
     {
       title: '',
       key: 'actions',
-      width: 140,
+      width: 150,
       fixed: 'right',
       align: 'center',
       render: (_: any, record: MenuBook) => (
-        <Space size="small">
+        <Space size="middle" className="flex justify-center">
           {record.type === 'CHUONG' && (onAddChapter || onAddExam) && (
             <Dropdown
               menu={{ items: getAddMenuItems(record) }}
@@ -213,7 +216,7 @@ const BookMenuTable: React.FC<BookMenuTableProps> = ({
         className: "px-4",
       }}
       className="ant-table-striped"
-      scroll={{ x: 1200 }}
+      scroll={{ x: 1300 }}
       rowClassName={(record, index) => 
         `${index % 2 === 0 ? 'bg-white' : 'bg-gray-50'} hover:bg-blue-50 transition-colors duration-200`
       }

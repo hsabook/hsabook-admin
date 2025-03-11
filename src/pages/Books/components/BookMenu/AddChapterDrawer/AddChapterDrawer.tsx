@@ -1,5 +1,5 @@
 import React from 'react';
-import { Drawer, Form, Input, Switch, Button, Space, Alert } from 'antd';
+import { Drawer, Form, Input, Switch, Button, Space, Alert, message } from 'antd';
 import RichTextEditor from '../../../../../components/RichTextEditor';
 import CoverUpload from './CoverUpload';
 import VideoUpload from './VideoUpload';
@@ -31,6 +31,7 @@ const AddChapterDrawer: React.FC<AddChapterDrawerProps> = ({
       form.resetFields();
     } catch (error) {
       console.error('Validation failed:', error);
+      message.error('Vui lòng điền đầy đủ các trường bắt buộc');
     }
   };
 
