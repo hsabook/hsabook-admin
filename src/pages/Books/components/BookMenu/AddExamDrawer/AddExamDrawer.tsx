@@ -31,6 +31,10 @@ const AddExamDrawer: React.FC<AddExamDrawerProps> = ({
   const [fileList, setFileList] = useState<UploadFile[]>([]);
   const [examFile, setExamFile] = useState<any>(null);
   
+  // Trạng thái cho các switch
+  const [isActive, setIsActive] = useState<boolean>(true);
+  const [isActiveCodeId, setIsActiveCodeId] = useState<boolean>(true);
+  
   // Trạng thái video
   const [videoType, setVideoType] = useState<'upload' | 'embed' | null>(null);
   const [videoFileList, setVideoFileList] = useState<UploadFile[]>([]);
@@ -51,6 +55,8 @@ const AddExamDrawer: React.FC<AddExamDrawerProps> = ({
     setVideoUrl('');
     setEmbedCode('');
     setHasVideo(false);
+    setIsActive(true);
+    setIsActiveCodeId(true);
     
     // Call the original onClose
     onClose();
@@ -201,6 +207,8 @@ const AddExamDrawer: React.FC<AddExamDrawerProps> = ({
       
       // Ghi log giá trị form trước khi xử lý
       console.log("📋 Giá trị form trước khi xử lý:", values);
+      console.log("🔘 Giá trị active từ state:", isActive);
+      console.log("🔘 Giá trị active_code_id từ state:", isActiveCodeId);
       
       // Tạo payload với các trường bắt buộc
       const payload: AddExamFormValues = {
@@ -208,6 +216,9 @@ const AddExamDrawer: React.FC<AddExamDrawerProps> = ({
         book_id: bookId,
         type: 'DE',
         parent_id: parentChapter?.id,
+        // Sử dụng giá trị từ state thay vì từ form
+        active: isActive,
+        active_code_id: isActiveCodeId,
         // Khởi tạo mảng rỗng để tránh giá trị null
         attached: [],
         files: values.files || [],
@@ -293,8 +304,6 @@ const AddExamDrawer: React.FC<AddExamDrawerProps> = ({
         layout="vertical"
         className="mt-4"
         initialValues={{
-          active: true,
-          active_code_id: true,
           difficulty: 'medium',
           description: '',
           book_id: bookId,
@@ -434,17 +443,31 @@ const AddExamDrawer: React.FC<AddExamDrawerProps> = ({
             </Form.Item>
             
             <div className="flex space-x-4">
-              <Form.Item name="active" className="mb-0 flex-1" valuePropName="checked">
+              <Form.Item className="mb-0 flex-1">
                 <div className="flex items-center justify-between rounded-lg px-4 py-2 border">
                   <span>Kích hoạt</span>
-                  <Switch className="custom-switch-green" />
+                  <Switch 
+                    className="custom-switch-green" 
+                    checked={isActive}
+                    onChange={(checked) => {
+                      console.log("Kích hoạt thay đổi:", checked);
+                      setIsActive(checked);
+                    }}
+                  />
                 </div>
               </Form.Item>
               
-              <Form.Item name="active_code_id" className="mb-0 flex-1" valuePropName="checked">
+              <Form.Item className="mb-0 flex-1">
                 <div className="flex items-center justify-between rounded-lg px-4 py-2 border">
                   <span>Tạo code ID</span>
-                  <Switch className="custom-switch-green" />
+                  <Switch 
+                    className="custom-switch-green" 
+                    checked={isActiveCodeId}
+                    onChange={(checked) => {
+                      console.log("Tạo code ID thay đổi:", checked);
+                      setIsActiveCodeId(checked);
+                    }}
+                  />
                 </div>
               </Form.Item>
             </div>
