@@ -4,8 +4,7 @@ import { message } from 'antd';
 import BookMenuHeader from './BookMenuHeader';
 import BookMenuTable from './BookMenuTable';
 import DeleteMenuBookModal from './DeleteMenuBookModal';
-import AddChapterDrawer from './AddChapterDrawer';
-import AddExamDrawer from './AddExamDrawer';
+import AddDrawer from './AddExamDrawer/AddExamDrawer';
 import { useMenuBooks } from './useMenuBooks';
 import { deleteMenuBook } from '../../../../api/menu-book';
 import { useChapterSubmit } from './AddChapterDrawer/useChapterSubmit';
@@ -136,7 +135,8 @@ const BookMenu: React.FC = () => {
         error={deleteError}
       />
 
-      <AddChapterDrawer
+      <AddDrawer
+        type="CHUONG"
         open={isAddChapterDrawerOpen}
         onClose={() => {
           setIsAddChapterDrawerOpen(false);
@@ -145,9 +145,11 @@ const BookMenu: React.FC = () => {
         onSubmit={handleAddChapter}
         loading={isSubmittingChapter}
         parentChapter={parentChapter}
+        bookId={id || ''}
       />
 
-      <AddExamDrawer
+      <AddDrawer
+        type="DE"
         open={isAddExamDrawerOpen}
         onClose={() => {
           setIsAddExamDrawerOpen(false);

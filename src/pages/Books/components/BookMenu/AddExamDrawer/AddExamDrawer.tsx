@@ -10,22 +10,24 @@ import { UploadOutlined, ImportOutlined, DatabaseOutlined, PlusOutlined, Youtube
 import { uploadFile } from '../../../../../api/upload';
 import RichTextEditor from '../../../../../components/RichTextEditor';
 
-interface AddExamDrawerProps {
+interface AddDrawerProps {
   open: boolean;
   onClose: () => void;
-  onSubmit: (values: AddExamFormValues) => void;
+  onSubmit: (values: any) => void;
   loading?: boolean;
   parentChapter?: MenuBook | null;
   bookId: string;
+  type: 'CHUONG' | 'DE'; // Thay đổi từ 'chapter' | 'exam' thành 'CHUONG' | 'DE'
 }
 
-const AddExamDrawer: React.FC<AddExamDrawerProps> = ({
+const AddDrawer: React.FC<AddDrawerProps> = ({
   open,
   onClose,
   onSubmit,
   loading,
   parentChapter,
-  bookId
+  bookId,
+  type // 'CHUONG' hoặc 'DE'
 }) => {
   const [form] = Form.useForm();
   const [fileList, setFileList] = useState<UploadFile[]>([]);
@@ -42,7 +44,10 @@ const AddExamDrawer: React.FC<AddExamDrawerProps> = ({
   const [embedCode, setEmbedCode] = useState<string>('');
   const [hasVideo, setHasVideo] = useState<boolean>(false);
 
-  // Handle closing the drawer and reset all data
+  // Kiểm tra xem có phải là loại DE hay không
+  const isExamType = type === 'DE';
+
+  // Xử lý đóng drawer và reset tất cả dữ liệu
   const handleClose = () => {
     // Reset form fields
     form.resetFields();
@@ -210,40 +215,44 @@ const AddExamDrawer: React.FC<AddExamDrawerProps> = ({
       console.log("🔘 Giá trị active từ state:", isActive);
       console.log("🔘 Giá trị active_code_id từ state:", isActiveCodeId);
       
-      // Tạo payload với các trường bắt buộc
-      const payload: AddExamFormValues = {
+      // Tạo payload với các trường cơ bản
+      const payload: any = {
         ...values,
         book_id: bookId,
-        type: 'DE',
+        type: type, // Sử dụng giá trị type trực tiếp ('CHUONG' hoặc 'DE')
         parent_id: parentChapter?.id,
         // Sử dụng giá trị từ state thay vì từ form
         active: isActive,
         active_code_id: isActiveCodeId,
         // Khởi tạo mảng rỗng để tránh giá trị null
         attached: [],
-        files: values.files || [],
       };
       
-      // Xử lý video dựa trên loại đã chọn
-      if (videoType === 'upload' && videoUrl) {
-        payload.video = videoUrl;
-        console.log("🎬 Sử dụng URL video đã tải lên:", videoUrl);
-      } else if (videoType === 'embed' && embedCode) {
-        payload.video = embedCode;
-        console.log("🎬 Sử dụng mã nhúng video:", embedCode);
-      } else {
-        payload.video = '';
-      }
-      
-      // Xử lý file đề thi
-      if (examFile) {
-        payload.exam = examFile;
-        console.log("📄 File đề thi:", examFile);
-      }
-      
-      // Đảm bảo mảng files được khởi tạo đúng cách
-      if (!payload.files) {
-        payload.files = [];
+      // Thêm các trường chỉ dành cho DE
+      if (isExamType) {
+        payload.files = values.files || [];
+        
+        // Xử lý video dựa trên loại đã chọn
+        if (videoType === 'upload' && videoUrl) {
+          payload.video = videoUrl;
+          console.log("🎬 Sử dụng URL video đã tải lên:", videoUrl);
+        } else if (videoType === 'embed' && embedCode) {
+          payload.video = embedCode;
+          console.log("🎬 Sử dụng mã nhúng video:", embedCode);
+        } else {
+          payload.video = '';
+        }
+        
+        // Xử lý file đề thi
+        if (examFile) {
+          payload.exam = examFile;
+          console.log("📄 File đề thi:", examFile);
+        }
+        
+        // Đảm bảo mảng files được khởi tạo đúng cách
+        if (!payload.files) {
+          payload.files = [];
+        }
       }
       
       // Ghi log payload cuối cùng để debug
@@ -266,9 +275,36 @@ const AddExamDrawer: React.FC<AddExamDrawerProps> = ({
     }
   };
 
+  // Xác định tiêu đề drawer dựa trên loại
+  const getDrawerTitle = () => {
+    if (isExamType) {
+      return parentChapter ? `Thêm bộ đề cho "${parentChapter.title}"` : "Thêm mới bộ đề";
+    } else {
+      return parentChapter ? `Thêm chương cho "${parentChapter.title}"` : "Thêm mới chương";
+    }
+  };
+
+  // Xác định thông báo dựa trên loại
+  const getAlertMessage = () => {
+    if (isExamType) {
+      return `Bạn đang thêm bộ đề cho chương "${parentChapter?.title}"`;
+    } else {
+      return `Bạn đang thêm chương cho chương "${parentChapter?.title}"`;
+    }
+  };
+
+  // Xác định placeholder cho mô tả dựa trên loại
+  const getDescriptionPlaceholder = () => {
+    if (isExamType) {
+      return "Nhập mô tả cho bộ đề (không bắt buộc)";
+    } else {
+      return "Nhập mô tả cho chương (không bắt buộc)";
+    }
+  };
+
   return (
     <Drawer
-      title={parentChapter ? `Thêm bộ đề cho "${parentChapter.title}"` : "Thêm mới bộ đề"}
+      title={getDrawerTitle()}
       open={open}
       onClose={handleClose}
       width="80%"
@@ -292,7 +328,7 @@ const AddExamDrawer: React.FC<AddExamDrawerProps> = ({
     >
       {parentChapter && (
         <Alert
-          message={`Bạn đang thêm bộ đề cho chương "${parentChapter.title}"`}
+          message={getAlertMessage()}
           type="info"
           showIcon
           className="mb-6"
@@ -307,7 +343,7 @@ const AddExamDrawer: React.FC<AddExamDrawerProps> = ({
           difficulty: 'medium',
           description: '',
           book_id: bookId,
-          type: 'DE',
+          type: type, // Sử dụng giá trị type trực tiếp
           video: '',
           attached: [],
           exam_id: '',
@@ -318,7 +354,7 @@ const AddExamDrawer: React.FC<AddExamDrawerProps> = ({
           <Input />
         </Form.Item>
         
-        <Form.Item name="type" hidden initialValue="DE">
+        <Form.Item name="type" hidden initialValue={type}>
           <Input />
         </Form.Item>
         
@@ -401,7 +437,7 @@ const AddExamDrawer: React.FC<AddExamDrawerProps> = ({
               </Upload>
             </Form.Item>
             <div className="text-xs text-gray-500 mt-1">
-              PNG, JPG, JPEG (Max: 5MB)
+              PNG, JPG, JPEG (Tối đa: 5MB)
             </div>
             <style>{`
               .cover-upload .ant-upload.ant-upload-select {
@@ -487,185 +523,195 @@ const AddExamDrawer: React.FC<AddExamDrawerProps> = ({
           className="mb-6"
         >
           <RichTextEditor 
-            placeholder="Nhập mô tả cho bộ đề (không bắt buộc)"
+            placeholder={getDescriptionPlaceholder()}
           />
         </Form.Item>
 
-        {/* Video Upload Section - Simplified */}
-        <div className="mb-6">
-          <div className="text-lg font-medium mb-4">Thêm video minh họa</div>
-          
-          {!hasVideo && (
-            <div className="grid grid-cols-2 gap-4">
-              <Card
-                hoverable
-                className={`cursor-pointer transition-all ${videoType === 'upload' ? 'border-[#45b630] bg-[#f6ffed]' : 'hover:border-[#45b630]'}`}
-                onClick={() => handleVideoTypeChange('upload')}
-              >
-                <div className="flex flex-col items-center justify-center text-center">
-                  <UploadOutlined className="text-2xl mb-2 text-[#45b630]" />
-                  <div className="font-medium">Tải lên video</div>
-                  <div className="text-xs text-gray-500 mt-1">Tải lên video từ máy tính</div>
-                </div>
-              </Card>
+        {/* Phần video - Chỉ hiển thị cho DE */}
+        {isExamType && (
+          <div className="mb-6">
+            <div className="text-lg font-medium mb-4">Thêm video minh họa</div>
+            
+            {!hasVideo && (
+              <div className="grid grid-cols-2 gap-4">
+                <Card
+                  hoverable
+                  className={`cursor-pointer transition-all ${videoType === 'upload' ? 'border-[#45b630] bg-[#f6ffed]' : 'hover:border-[#45b630]'}`}
+                  onClick={() => handleVideoTypeChange('upload')}
+                >
+                  <div className="flex flex-col items-center justify-center text-center">
+                    <UploadOutlined className="text-2xl mb-2 text-[#45b630]" />
+                    <div className="font-medium">Tải lên video</div>
+                    <div className="text-xs text-gray-500 mt-1">Tải lên video từ máy tính</div>
+                  </div>
+                </Card>
 
-              <Card
-                hoverable
-                className={`cursor-pointer transition-all ${videoType === 'embed' ? 'border-[#45b630] bg-[#f6ffed]' : 'hover:border-[#45b630]'}`}
-                onClick={() => handleVideoTypeChange('embed')}
-              >
-                <div className="flex flex-col items-center justify-center text-center">
-                  <YoutubeOutlined className="text-2xl mb-2 text-red-500" />
-                  <div className="font-medium">Nhúng video</div>
-                  <div className="text-xs text-gray-500 mt-1">Nhúng video từ YouTube hoặc URL</div>
-                </div>
-              </Card>
-            </div>
-          )}
+                <Card
+                  hoverable
+                  className={`cursor-pointer transition-all ${videoType === 'embed' ? 'border-[#45b630] bg-[#f6ffed]' : 'hover:border-[#45b630]'}`}
+                  onClick={() => handleVideoTypeChange('embed')}
+                >
+                  <div className="flex flex-col items-center justify-center text-center">
+                    <YoutubeOutlined className="text-2xl mb-2 text-red-500" />
+                    <div className="font-medium">Nhúng video</div>
+                    <div className="text-xs text-gray-500 mt-1">Nhúng video từ YouTube hoặc URL</div>
+                  </div>
+                </Card>
+              </div>
+            )}
 
-          {videoType === 'upload' && (
-            <div className="mt-4 p-4 bg-gray-50 rounded-lg">
+            {videoType === 'upload' && (
+              <div className="mt-4 p-4 bg-gray-50 rounded-lg">
+                <Upload
+                  fileList={videoFileList}
+                  onChange={handleVideoUpload}
+                  beforeUpload={() => false}
+                  maxCount={1}
+                  className="w-full"
+                >
+                  <Button icon={<UploadOutlined />} className="w-full h-12">
+                    Chọn video từ máy tính
+                  </Button>
+                </Upload>
+                <div className="mt-2 text-xs text-gray-500">
+                  Hỗ trợ: MP4, MOV, WebM (Tối đa 5MB)
+                </div>
+
+                {videoUrl && (
+                  <div className="mt-4">
+                    <div className="flex justify-between items-center mb-2">
+                      <h4 className="text-sm font-medium">Xem trước video:</h4>
+                      <Button 
+                        type="primary" 
+                        danger 
+                        icon={<DeleteOutlined />} 
+                        size="small"
+                        onClick={handleRemoveVideo}
+                      >
+                        Xóa
+                      </Button>
+                    </div>
+                    <div className="relative pt-[40%] bg-black rounded overflow-hidden max-w-2xl mx-auto">
+                      <video 
+                        src={videoUrl}
+                        controls 
+                        className="absolute top-0 left-0 w-full h-full"
+                      />
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {videoType === 'embed' && (
+              <div className="mt-4 p-4 bg-gray-50 rounded-lg">
+                <Form.Item name="embedVideo" className="mb-1">
+                  <Input.TextArea
+                    placeholder="Dán mã nhúng iframe từ YouTube hoặc các nền tảng khác"
+                    rows={3}
+                    onChange={handleEmbedCodeChange}
+                  />
+                </Form.Item>
+                <div className="text-xs text-gray-500">
+                  Ví dụ: <code>&lt;iframe src="https://www.youtube.com/embed/..."&gt;&lt;/iframe&gt;</code>
+                </div>
+
+                {embedCode && (
+                  <div className="mt-4">
+                    <div className="flex justify-between items-center mb-2">
+                      <h4 className="text-sm font-medium">Xem trước video:</h4>
+                      <Button 
+                        type="primary" 
+                        danger 
+                        icon={<DeleteOutlined />} 
+                        size="small"
+                        onClick={handleRemoveVideo}
+                      >
+                        Xóa
+                      </Button>
+                    </div>
+                    <div className="relative pt-[40%] bg-black rounded overflow-hidden max-w-2xl mx-auto">
+                      {embedCode.includes('<iframe') ? (
+                        <div
+                          className="absolute top-0 left-0 w-full h-full"
+                          dangerouslySetInnerHTML={{ 
+                            __html: embedCode.replace('<iframe', '<iframe style="width:100%;height:100%;position:absolute;top:0;left:0;border:0;"') 
+                          }}
+                        />
+                      ) : (
+                        <div className="absolute top-0 left-0 w-full h-full flex items-center justify-center bg-gray-200 text-gray-500">
+                          Vui lòng nhập mã nhúng iframe hợp lệ
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Phần đính kèm bộ đề - Chỉ hiển thị cho DE */}
+        {isExamType && (
+          <Form.Item
+            label="Đính kèm bộ đề"
+            className="mb-6"
+          >
+            <div className="flex gap-4">
+              <Button 
+                className="border rounded-md px-4 py-2 flex items-center"
+                onClick={() => message.info('Thêm từ kho câu hỏi')}
+              >
+                <DatabaseOutlined className="mr-2" /> Thêm từ kho câu hỏi
+              </Button>
+              
               <Upload
-                fileList={videoFileList}
-                onChange={handleVideoUpload}
                 beforeUpload={() => false}
                 maxCount={1}
-                className="w-full"
+                showUploadList={false}
+                onChange={(info) => {
+                  if (info.file.status !== 'uploading') {
+                    setExamFile(info.file);
+                    form.setFieldsValue({ exam: info.file });
+                    console.log("📄 Đã chọn file đề thi:", info.file.name);
+                    message.success(`Đã chọn file ${info.file.name}`);
+                  }
+                }}
               >
-                <Button icon={<UploadOutlined />} className="w-full h-12">
-                  Chọn video từ máy tính
+                <Button className="border rounded-md px-4 py-2 flex items-center">
+                  <ImportOutlined className="mr-2" /> Import
                 </Button>
               </Upload>
-              <div className="mt-2 text-xs text-gray-500">
-                Hỗ trợ: MP4, MOV, WebM (Tối đa 5MB)
-              </div>
-
-              {videoUrl && (
-                <div className="mt-4">
-                  <div className="flex justify-between items-center mb-2">
-                    <h4 className="text-sm font-medium">Xem trước video:</h4>
-                    <Button 
-                      type="primary" 
-                      danger 
-                      icon={<DeleteOutlined />} 
-                      size="small"
-                      onClick={handleRemoveVideo}
-                    >
-                      Xóa
-                    </Button>
-                  </div>
-                  <div className="relative pt-[40%] bg-black rounded overflow-hidden max-w-2xl mx-auto">
-                    <video 
-                      src={videoUrl}
-                      controls 
-                      className="absolute top-0 left-0 w-full h-full"
-                    />
-                  </div>
-                </div>
-              )}
             </div>
-          )}
+          </Form.Item>
+        )}
 
-          {videoType === 'embed' && (
-            <div className="mt-4 p-4 bg-gray-50 rounded-lg">
-              <Form.Item name="embedVideo" className="mb-1">
-                <Input.TextArea
-                  placeholder="Dán mã nhúng iframe từ YouTube hoặc các nền tảng khác"
-                  rows={3}
-                  onChange={handleEmbedCodeChange}
-                />
-              </Form.Item>
-              <div className="text-xs text-gray-500">
-                Ví dụ: <code>&lt;iframe src="https://www.youtube.com/embed/..."&gt;&lt;/iframe&gt;</code>
-              </div>
+        {/* Trường ẩn cho exam_id - Chỉ cho DE */}
+        {isExamType && (
+          <Form.Item name="exam_id" hidden initialValue="">
+            <Input />
+          </Form.Item>
+        )}
 
-              {embedCode && (
-                <div className="mt-4">
-                  <div className="flex justify-between items-center mb-2">
-                    <h4 className="text-sm font-medium">Xem trước video:</h4>
-                    <Button 
-                      type="primary" 
-                      danger 
-                      icon={<DeleteOutlined />} 
-                      size="small"
-                      onClick={handleRemoveVideo}
-                    >
-                      Xóa
-                    </Button>
-                  </div>
-                  <div className="relative pt-[40%] bg-black rounded overflow-hidden max-w-2xl mx-auto">
-                    {embedCode.includes('<iframe') ? (
-                      <div
-                        className="absolute top-0 left-0 w-full h-full"
-                        dangerouslySetInnerHTML={{ 
-                          __html: embedCode.replace('<iframe', '<iframe style="width:100%;height:100%;position:absolute;top:0;left:0;border:0;"') 
-                        }}
-                      />
-                    ) : (
-                      <div className="absolute top-0 left-0 w-full h-full flex items-center justify-center bg-gray-200 text-gray-500">
-                        Vui lòng nhập mã nhúng iframe hợp lệ
-                      </div>
-                    )}
-                  </div>
-                </div>
-              )}
-            </div>
-          )}
-        </div>
-
-        {/* Exam Upload Section - Small Simple Buttons */}
-        <Form.Item
-          label="Đính kèm bộ đề"
-          className="mb-6"
-        >
-          <div className="flex gap-4">
-            <Button 
-              className="border rounded-md px-4 py-2 flex items-center"
-              onClick={() => message.info('Thêm từ kho câu hỏi')}
-            >
-              <DatabaseOutlined className="mr-2" /> Thêm từ kho câu hỏi
-            </Button>
-            
-            <Upload
-              beforeUpload={() => false}
-              maxCount={1}
-              showUploadList={false}
-              onChange={(info) => {
-                if (info.file.status !== 'uploading') {
-                  setExamFile(info.file);
-                  form.setFieldsValue({ exam: info.file });
-                  console.log("📄 Đã chọn file đề thi:", info.file.name);
-                  message.success(`Đã chọn file ${info.file.name}`);
-                }
-              }}
-            >
-              <Button className="border rounded-md px-4 py-2 flex items-center">
-                <ImportOutlined className="mr-2" /> Import
-              </Button>
-            </Upload>
+        {/* Tiêu đề bảng - Chỉ hiển thị cho DE */}
+        {isExamType && (
+          <div className="grid grid-cols-4 gap-4 p-4 bg-gray-100 rounded-lg mb-6">
+            <div className="font-medium">Tên bộ đề</div>
+            <div className="font-medium">ID bộ đề</div>
+            <div className="font-medium">Trạng thái</div>
+            <div className="font-medium">Số câu hỏi</div>
           </div>
-        </Form.Item>
+        )}
 
-        {/* Trường ẩn cho exam_id */}
-        <Form.Item name="exam_id" hidden initialValue="">
-          <Input />
-        </Form.Item>
-
-        {/* Tiêu đề bảng */}
-        <div className="grid grid-cols-4 gap-4 p-4 bg-gray-100 rounded-lg mb-6">
-          <div className="font-medium">Tên bộ đề</div>
-          <div className="font-medium">ID bộ đề</div>
-          <div className="font-medium">Trạng thái</div>
-          <div className="font-medium">Số câu hỏi</div>
-        </div>
-
-        {/* File đính kèm bổ sung - Ẩn */}
-        <Form.Item name="files" hidden>
-          <Input />
-        </Form.Item>
+        {/* File đính kèm bổ sung - Ẩn - Chỉ cho DE */}
+        {isExamType && (
+          <Form.Item name="files" hidden>
+            <Input />
+          </Form.Item>
+        )}
       </Form>
     </Drawer>
   );
 };
 
-export default AddExamDrawer;
+export default AddDrawer;
