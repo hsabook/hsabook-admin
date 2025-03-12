@@ -1,14 +1,11 @@
 import React, { useState } from 'react';
-import { Drawer, Form, Input, Switch, Button, Space, Alert, message, Upload, Card } from 'antd';
-import CoverUpload from '../AddChapterDrawer/CoverUpload';
-import ExamUpload from './ExamUpload';
-import FileUpload from '../AddChapterDrawer/FileUpload';
-import type { AddExamFormValues } from './types';
+import { Drawer, Form, Input, Switch, Button, Space, Alert, message, Upload, Card, Badge } from 'antd';
 import type { MenuBook } from '../../../../../api/menu-book/types';
 import type { UploadFile } from 'antd/es/upload/interface';
-import { UploadOutlined, ImportOutlined, DatabaseOutlined, PlusOutlined, YoutubeOutlined, DeleteOutlined } from '@ant-design/icons';
+import { UploadOutlined, ImportOutlined, DatabaseOutlined, PlusOutlined, YoutubeOutlined, DeleteOutlined, EyeOutlined, FileOutlined } from '@ant-design/icons';
 import { uploadFile } from '../../../../../api/upload';
 import RichTextEditor from '../../../../../components/RichTextEditor';
+import ExamsListDrawer from './ExamsListDrawer';
 
 interface AddDrawerProps {
   open: boolean;
@@ -44,6 +41,16 @@ const AddDrawer: React.FC<AddDrawerProps> = ({
   const [embedCode, setEmbedCode] = useState<string>('');
   const [hasVideo, setHasVideo] = useState<boolean>(false);
 
+  // Thêm trạng thái cho drawer chọn bộ đề
+  const [isExamListDrawerOpen, setIsExamListDrawerOpen] = useState<boolean>(false);
+  // Thêm trạng thái lưu bộ đề đã chọn
+  const [selectedExams, setSelectedExams] = useState<any[]>([]);
+
+  // Thêm state để lưu URL file doc sau khi upload
+  const [examDocUrl, setExamDocUrl] = useState<string>('');
+  const [examDocFileName, setExamDocFileName] = useState<string>('');
+  const [uploadingDoc, setUploadingDoc] = useState<boolean>(false);
+
   // Kiểm tra xem có phải là loại DE hay không
   const isExamType = type === 'DE';
 
@@ -62,6 +69,9 @@ const AddDrawer: React.FC<AddDrawerProps> = ({
     setHasVideo(false);
     setIsActive(true);
     setIsActiveCodeId(true);
+    setSelectedExams([]); // Reset bộ đề đã chọn
+    setExamDocUrl(''); // Reset URL file doc
+    setExamDocFileName(''); // Reset tên file doc
     
     // Call the original onClose
     onClose();
@@ -206,6 +216,62 @@ const AddDrawer: React.FC<AddDrawerProps> = ({
     }
   };
 
+  // Thêm hàm xử lý upload file doc
+  const handleDocUpload = async (file: any) => {
+    console.log("📄 Bắt đầu tải lên file doc:", file.name);
+    
+    // Kiểm tra định dạng file
+    const isDocOrDocx = /\.(doc|docx)$/i.test(file.name);
+    if (!isDocOrDocx) {
+      message.error('Chỉ hỗ trợ định dạng DOC, DOCX');
+      return false;
+    }
+    
+    // Kiểm tra kích thước file (tối đa 500MB)
+    const maxSize = 500 * 1024 * 1024;
+    if (file.size > maxSize) {
+      message.error('Kích thước file không được vượt quá 500MB');
+      return false;
+    }
+    
+    try {
+      setUploadingDoc(true);
+      message.loading({ content: 'Đang tải lên file...', key: 'docUpload' });
+      
+      // Upload file lên server và lấy URL
+      const url = await uploadFile(file);
+      
+      // Lưu URL vào state và form
+      setExamDocUrl(url);
+      setExamDocFileName(file.name);
+      form.setFieldsValue({ exam_url_doc: url });
+      
+      // Log giá trị form sau khi đặt để kiểm tra
+      const formValues = form.getFieldsValue();
+      console.log("📋 Giá trị form sau khi tải file doc:", formValues);
+      console.log("📋 Trường exam_url_doc trong form:", formValues.exam_url_doc);
+      
+      message.success({ content: 'Tải lên file thành công', key: 'docUpload' });
+      console.log("✅ Tải lên file doc thành công:", url);
+      console.log("👉 URL file doc sẽ được gửi đến API trong trường exam_url_doc");
+      return false; // Ngăn không cho Upload component tự động upload
+    } catch (error) {
+      console.error("❌ Lỗi khi tải lên file doc:", error);
+      message.error({ content: 'Tải lên file thất bại', key: 'docUpload' });
+      return false;
+    } finally {
+      setUploadingDoc(false);
+    }
+  };
+
+  // Thêm hàm xử lý xóa file doc đã upload
+  const handleRemoveDocFile = () => {
+    setExamDocUrl('');
+    setExamDocFileName('');
+    form.setFieldsValue({ exam_url_doc: '' });
+    message.success('Đã xóa file đã chọn');
+  };
+
   const handleSubmit = async () => {
     try {
       const values = await form.validateFields();
@@ -214,6 +280,7 @@ const AddDrawer: React.FC<AddDrawerProps> = ({
       console.log("📋 Giá trị form trước khi xử lý:", values);
       console.log("🔘 Giá trị active từ state:", isActive);
       console.log("🔘 Giá trị active_code_id từ state:", isActiveCodeId);
+      console.log("📄 URL file doc:", examDocUrl);
       
       // Tạo payload với các trường cơ bản
       const payload: any = {
@@ -226,7 +293,11 @@ const AddDrawer: React.FC<AddDrawerProps> = ({
         active_code_id: isActiveCodeId,
         // Khởi tạo mảng rỗng để tránh giá trị null
         attached: [],
+        // LUÔN thêm exam_url_doc vào payload, bất kể loại nào
+        exam_url_doc: examDocUrl || '',
       };
+      
+      console.log("📝 URL file doc trong payload:", payload.exam_url_doc);
       
       // Thêm các trường chỉ dành cho DE
       if (isExamType) {
@@ -249,6 +320,12 @@ const AddDrawer: React.FC<AddDrawerProps> = ({
           console.log("📄 File đề thi:", examFile);
         }
         
+        // Xử lý bộ đề đã chọn
+        if (selectedExams.length > 0) {
+          payload.exam_id = selectedExams[0].id;
+          console.log("📚 Thêm bộ đề đã chọn vào payload:", selectedExams[0].id);
+        }
+        
         // Đảm bảo mảng files được khởi tạo đúng cách
         if (!payload.files) {
           payload.files = [];
@@ -259,6 +336,7 @@ const AddDrawer: React.FC<AddDrawerProps> = ({
       console.log("🔍 Dữ liệu cuối cùng:", JSON.stringify(payload, null, 2));
       
       await onSubmit(payload);
+      console.log("✅ Đã gửi dữ liệu lên API thành công");
       
       // Reset form và các trạng thái
       form.resetFields();
@@ -269,6 +347,9 @@ const AddDrawer: React.FC<AddDrawerProps> = ({
       setVideoUrl('');
       setEmbedCode('');
       setHasVideo(false);
+      setExamDocUrl('');
+      setExamDocFileName('');
+      setSelectedExams([]); // Reset bộ đề đã chọn
     } catch (error) {
       console.error('Lỗi xác thực:', error);
       message.error('Vui lòng điền đầy đủ các trường bắt buộc');
@@ -300,6 +381,36 @@ const AddDrawer: React.FC<AddDrawerProps> = ({
     } else {
       return "Nhập mô tả cho chương (không bắt buộc)";
     }
+  };
+
+  // Xử lý khi chọn bộ đề từ drawer
+  const handleSelectExams = (exams: any[]) => {
+    setSelectedExams(exams);
+    console.log("📚 Đã chọn bộ đề:", exams);
+    
+    // Cập nhật exam_id và thông tin khác nếu cần
+    if (exams.length > 0) {
+      const selectedExam = exams[0]; // Lấy bộ đề đầu tiên được chọn
+      form.setFieldsValue({ 
+        title: selectedExam.title,
+        exam_id: selectedExam.id 
+      });
+      message.success(`Đã chọn bộ đề: ${selectedExam.title} (${selectedExam.code_id})`);
+    }
+  };
+
+  // Thêm hàm xử lý xóa bộ đề đã chọn
+  const handleRemoveSelectedExam = () => {
+    setSelectedExams([]);
+    form.setFieldsValue({ exam_id: '' });
+    message.success('Đã xóa bộ đề đã chọn. Bạn có thể thêm bộ đề mới.');
+  };
+
+  // Thêm hàm xử lý xem chi tiết bộ đề
+  const handleViewExamDetails = (examId: string) => {
+    console.log("🔍 Xem chi tiết bộ đề:", examId);
+    message.info(`Xem chi tiết bộ đề: ${examId}`);
+    // Tại đây có thể mở modal hoặc drawer hiển thị chi tiết bộ đề
   };
 
   return (
@@ -347,6 +458,7 @@ const AddDrawer: React.FC<AddDrawerProps> = ({
           video: '',
           attached: [],
           exam_id: '',
+          exam_url_doc: '', // Thêm giá trị khởi tạo cho exam_url_doc
         }}
       >
         {/* Các trường ẩn cho yêu cầu API */}
@@ -363,6 +475,10 @@ const AddDrawer: React.FC<AddDrawerProps> = ({
         </Form.Item>
         
         <Form.Item name="video" hidden>
+          <Input />
+        </Form.Item>
+
+        <Form.Item name="exam_url_doc" hidden>
           <Input />
         </Form.Item>
 
@@ -658,31 +774,52 @@ const AddDrawer: React.FC<AddDrawerProps> = ({
             className="mb-6"
           >
             <div className="flex gap-4">
-              <Button 
-                className="border rounded-md px-4 py-2 flex items-center"
-                onClick={() => message.info('Thêm từ kho câu hỏi')}
-              >
-                <DatabaseOutlined className="mr-2" /> Thêm từ kho câu hỏi
-              </Button>
+              {selectedExams.length === 0 && (
+                <Button 
+                  className="border rounded-md px-4 py-2 flex items-center"
+                  onClick={() => setIsExamListDrawerOpen(true)}
+                >
+                  <DatabaseOutlined className="mr-2" /> Thêm từ kho câu hỏi
+                </Button>
+              )}
               
               <Upload
-                beforeUpload={() => false}
-                maxCount={1}
+                beforeUpload={handleDocUpload}
                 showUploadList={false}
-                onChange={(info) => {
-                  if (info.file.status !== 'uploading') {
-                    setExamFile(info.file);
-                    form.setFieldsValue({ exam: info.file });
-                    console.log("📄 Đã chọn file đề thi:", info.file.name);
-                    message.success(`Đã chọn file ${info.file.name}`);
-                  }
-                }}
+                maxCount={1}
+                accept=".doc,.docx"
+                disabled={uploadingDoc || !!examDocUrl}
               >
-                <Button className="border rounded-md px-4 py-2 flex items-center">
+                <Button 
+                  className="border rounded-md px-4 py-2 flex items-center"
+                  loading={uploadingDoc}
+                >
                   <ImportOutlined className="mr-2" /> Import
                 </Button>
               </Upload>
             </div>
+            
+            {examDocUrl && (
+              <div className="mt-4 p-4 bg-gray-50 rounded-lg">
+                <div className="flex justify-between items-center">
+                  <div className="flex items-center">
+                    <FileOutlined className="text-blue-500 text-xl mr-2" />
+                    <div>
+                      <div className="font-medium">{examDocFileName}</div>
+                      <div className="text-xs text-gray-500">File đã tải lên thành công</div>
+                    </div>
+                  </div>
+                  <Button 
+                    type="text" 
+                    icon={<DeleteOutlined />} 
+                    danger
+                    onClick={handleRemoveDocFile}
+                  >
+                    Xóa
+                  </Button>
+                </div>
+              </div>
+            )}
           </Form.Item>
         )}
 
@@ -693,13 +830,14 @@ const AddDrawer: React.FC<AddDrawerProps> = ({
           </Form.Item>
         )}
 
-        {/* Tiêu đề bảng - Chỉ hiển thị cho DE */}
+        {/* Tiêu đề bảng - Chỉ hiển thị cho DE và khi có bộ đề được chọn hoặc không */}
         {isExamType && (
-          <div className="grid grid-cols-4 gap-4 p-4 bg-gray-100 rounded-lg mb-6">
+          <div className="grid grid-cols-5 gap-4 p-4 bg-gray-100 rounded-lg mb-6">
             <div className="font-medium">Tên bộ đề</div>
             <div className="font-medium">ID bộ đề</div>
             <div className="font-medium">Trạng thái</div>
             <div className="font-medium">Số câu hỏi</div>
+            <div className="font-medium text-right">Thao tác</div>
           </div>
         )}
 
@@ -709,7 +847,49 @@ const AddDrawer: React.FC<AddDrawerProps> = ({
             <Input />
           </Form.Item>
         )}
+
+        {/* Hiển thị thông tin bộ đề đã chọn */}
+        {isExamType && selectedExams.length > 0 && (
+          <div className="grid grid-cols-5 gap-4 p-4 bg-white border rounded-lg mb-6">
+            <div>{selectedExams[0].title}</div>
+            <div>{selectedExams[0].code_id}</div>
+            <div>
+              <Badge 
+                status={selectedExams[0].active ? "success" : "default"} 
+                text={selectedExams[0].active ? "Kích hoạt" : "Vô hiệu"}
+              />
+            </div>
+            <div>{selectedExams[0].total_question || 0} câu</div>
+            <div className="text-right">
+              <div className="inline-flex space-x-2">
+                <Button 
+                  type="text" 
+                  icon={<EyeOutlined />} 
+                  size="small"
+                  className="text-blue-500 hover:text-blue-700"
+                  onClick={() => handleViewExamDetails(selectedExams[0].id)}
+                  title="Xem chi tiết"
+                />
+                <Button 
+                  type="text" 
+                  icon={<DeleteOutlined />} 
+                  size="small"
+                  className="text-red-500 hover:text-red-700"
+                  onClick={handleRemoveSelectedExam}
+                  title="Xóa bộ đề đã chọn"
+                />
+              </div>
+            </div>
+          </div>
+        )}
       </Form>
+
+      {/* Drawer chọn bộ đề từ kho */}
+      <ExamsListDrawer
+        open={isExamListDrawerOpen}
+        onClose={() => setIsExamListDrawerOpen(false)}
+        onSelectExams={handleSelectExams}
+      />
     </Drawer>
   );
 };

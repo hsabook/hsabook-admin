@@ -4,7 +4,7 @@ import { message } from 'antd';
 import BookMenuHeader from './BookMenuHeader';
 import BookMenuTable from './BookMenuTable';
 import DeleteMenuBookModal from './DeleteMenuBookModal';
-import AddDrawer from './AddExamDrawer/AddExamDrawer';
+import { AddDrawer } from './AddExamDrawer';
 import { useMenuBooks } from './useMenuBooks';
 import { deleteMenuBook } from '../../../../api/menu-book';
 import { useChapterSubmit } from './AddChapterDrawer/useChapterSubmit';

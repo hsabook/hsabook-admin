@@ -19,4 +19,5 @@ export interface AddExamFormValues {
   attached?: any[];
   exam_id?: string;
   parent_id?: string;
+  exam_url_doc?: string;
 }

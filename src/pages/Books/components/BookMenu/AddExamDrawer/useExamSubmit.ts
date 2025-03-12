@@ -93,6 +93,7 @@ export const useExamSubmit = ({ bookId, parentId, onSuccess }: UseExamSubmitProp
         video: videoUrl || '',
         exam_id: values.exam_id || '',
         parent_id: values.parent_id || parentId || null,
+        exam_url_doc: values.exam_url_doc || '',
       };
       
       // Log final payload
