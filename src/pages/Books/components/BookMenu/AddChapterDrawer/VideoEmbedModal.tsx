@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Modal, Input, Alert, Button } from 'antd';
 import { YoutubeOutlined } from '@ant-design/icons';
 
@@ -6,15 +6,25 @@ interface VideoEmbedModalProps {
   open: boolean;
   onClose: () => void;
   onSubmit: (embedCode: string) => void;
+  initialValue?: string;
 }
 
 const VideoEmbedModal: React.FC<VideoEmbedModalProps> = ({
   open,
   onClose,
   onSubmit,
+  initialValue = ''
 }) => {
   const [embedCode, setEmbedCode] = useState('');
   const [error, setError] = useState<string | null>(null);
+
+  // Update embedCode when initialValue changes or modal opens
+  useEffect(() => {
+    if (open) {
+      setEmbedCode(initialValue);
+      setError(null);
+    }
+  }, [open, initialValue]);
 
   const handleSubmit = () => {
     // Basic validation for iframe code
@@ -49,7 +59,7 @@ const VideoEmbedModal: React.FC<VideoEmbedModalProps> = ({
           onClick={handleSubmit}
           className="bg-[#45b630]"
         >
-          Thêm
+          {initialValue ? 'Cập nhật' : 'Thêm'}
         </Button>
       ]}
     >

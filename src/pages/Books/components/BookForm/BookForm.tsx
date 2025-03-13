@@ -1,11 +1,16 @@
 import React, { forwardRef, useImperativeHandle } from 'react';
-import { Form, Button } from 'antd';
+import { Form, Button, message } from 'antd';
 import type { BookFormValues } from './types';
 import type { Book } from '../../../../api/books/types';
 import { BookCover } from './BookCover';
 import { BookDetails } from './BookDetails';
 import { BookSummary } from './BookSummary';
 import { useBookSubmit } from './useBookSubmit';
+
+interface BookFormProps {
+  onSubmit: (values: BookFormValues) => void;
+  initialValues?: Book | null;
+}
 
 const BookForm = forwardRef<{ resetFields: () => void }, BookFormProps>(({
   onSubmit,
@@ -21,20 +26,33 @@ const BookForm = forwardRef<{ resetFields: () => void }, BookFormProps>(({
     subjects: initialValues.subject,
     expiration_date: initialValues.expiration_date,
     is_public: initialValues.is_public,
-    categories: initialValues.book_tags.map(tag => tag.tag.id),
-    authors: initialValues.authors.map(author => author.user.id),
+    categories: initialValues.book_tags.map((tag: any) => tag.tag.id),
+    authors: initialValues.authors.map((author: any) => author.user.id),
   } : undefined;
 
   useImperativeHandle(ref, () => ({
     resetFields: () => form.resetFields()
   }));
 
+  const onFinish = async (values: BookFormValues) => {
+    try {
+      await handleSubmit(values);
+    } catch (error) {
+      console.error('Form submission error:', error);
+    }
+  };
+
+  const onFinishFailed = () => {
+    message.error('Vui lòng điền đầy đủ các trường bắt buộc');
+  };
+
   return (
     <Form
       form={form}
       layout="vertical"
       initialValues={transformedValues}
-      onFinish={handleSubmit}
+      onFinish={onFinish}
+      onFinishFailed={onFinishFailed}
       className="py-6"
     >
       <div className="space-y-8">

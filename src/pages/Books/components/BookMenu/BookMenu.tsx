@@ -4,15 +4,23 @@ import { message } from 'antd';
 import BookMenuHeader from './BookMenuHeader';
 import BookMenuTable from './BookMenuTable';
 import DeleteMenuBookModal from './DeleteMenuBookModal';
-import AddChapterDrawer from './AddChapterDrawer';
-import AddExamDrawer from './AddExamDrawer';
+import { AddDrawer } from './AddExamDrawer';
+import EditDrawer from './EditDrawer';
 import { useMenuBooks } from './useMenuBooks';
-import { deleteMenuBook } from '../../../../api/menu-book';
+import { deleteMenuBook, getMenuBookById } from '../../../../api/menu-book';
 import { useChapterSubmit } from './AddChapterDrawer/useChapterSubmit';
 import { useExamSubmit } from './AddExamDrawer/useExamSubmit';
+import { useMenuEdit } from './hooks/useMenuEdit';
 import type { MenuBook } from '../../../../api/menu-book/types';
 import type { AddChapterFormValues } from './AddChapterDrawer/types';
 import type { AddExamFormValues } from './AddExamDrawer/types';
+
+// Extended type for MenuBook with optional fields
+interface ExtendedMenuBook extends MenuBook {
+  description?: string;
+  active_code_id?: boolean;
+  video?: string;
+}
 
 const BookMenu: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -25,21 +33,55 @@ const BookMenu: React.FC = () => {
     refetch 
   } = useMenuBooks(id || '');
   
-  const [selectedMenuBook, setSelectedMenuBook] = useState<MenuBook | null>(null);
+  const [selectedMenuBook, setSelectedMenuBook] = useState<ExtendedMenuBook | null>(null);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [isAddChapterDrawerOpen, setIsAddChapterDrawerOpen] = useState(false);
   const [isAddExamDrawerOpen, setIsAddExamDrawerOpen] = useState(false);
+  const [isEditDrawerOpen, setIsEditDrawerOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
   const [parentChapter, setParentChapter] = useState<MenuBook | null>(null);
+  const [loadingMenuBookDetails, setLoadingMenuBookDetails] = useState(false);
   
   const { isSubmitting: isSubmittingChapter, handleSubmit: handleChapterSubmit } = useChapterSubmit(id || '');
-  const { isSubmitting: isSubmittingExam, handleSubmit: handleExamSubmit } = useExamSubmit(id || '');
+  const { loading: isSubmittingExam, handleSubmit: handleExamSubmit } = useExamSubmit({ 
+    bookId: id || '',
+    onSuccess: () => {
+      refetch();
+    }
+  });
+  const { loading: isSubmittingEdit, handleSubmit: handleEditSubmit } = useMenuEdit({
+    onSuccess: () => {
+      refetch();
+    }
+  });
 
   const handleDeleteMenuBook = (menuBook: MenuBook) => {
-    setSelectedMenuBook(menuBook);
+    setSelectedMenuBook(menuBook as ExtendedMenuBook);
     setIsDeleteModalOpen(true);
     setDeleteError(null);
+  };
+
+  const handleEditMenuBook = async (menuBook: MenuBook) => {
+    try {
+      setLoadingMenuBookDetails(true);
+      // First, set the basic menuBook data from the table
+      setSelectedMenuBook(menuBook as ExtendedMenuBook);
+      setIsEditDrawerOpen(true);
+      
+      // Then, fetch the full details
+      const response = await getMenuBookById(menuBook.id);
+      
+      if (response?.data) {
+        // Update the selected menu book with detailed info
+        setSelectedMenuBook(response.data as ExtendedMenuBook);
+      }
+    } catch (error) {
+      console.error('Failed to fetch menu book details:', error);
+      message.error('Không thể lấy thông tin chi tiết');
+    } finally {
+      setLoadingMenuBookDetails(false);
+    }
   };
 
   const handleDeleteConfirm = async () => {
@@ -71,11 +113,17 @@ const BookMenu: React.FC = () => {
   };
 
   const handleAddExam = async (values: AddExamFormValues) => {
-    const success = await handleExamSubmit(values, parentChapter?.id);
-    if (success) {
+    try {
+      // Pass parent_id if parentChapter exists
+      await handleExamSubmit({
+        ...values,
+        parent_id: parentChapter?.id
+      });
+      
       setIsAddExamDrawerOpen(false);
       setParentChapter(null);
-      refetch();
+    } catch (error) {
+      console.error('Failed to add exam:', error);
     }
   };
 
@@ -101,6 +149,7 @@ const BookMenu: React.FC = () => {
           data={menuBooks}
           loading={loading}
           onDelete={handleDeleteMenuBook}
+          onEdit={handleEditMenuBook}
           onAddChapter={(chapter) => {
             setParentChapter(chapter);
             setIsAddChapterDrawerOpen(true);
@@ -125,7 +174,8 @@ const BookMenu: React.FC = () => {
         error={deleteError}
       />
 
-      <AddChapterDrawer
+      <AddDrawer
+        type="CHUONG"
         open={isAddChapterDrawerOpen}
         onClose={() => {
           setIsAddChapterDrawerOpen(false);
@@ -134,9 +184,11 @@ const BookMenu: React.FC = () => {
         onSubmit={handleAddChapter}
         loading={isSubmittingChapter}
         parentChapter={parentChapter}
+        bookId={id || ''}
       />
 
-      <AddExamDrawer
+      <AddDrawer
+        type="DE"
         open={isAddExamDrawerOpen}
         onClose={() => {
           setIsAddExamDrawerOpen(false);
@@ -145,6 +197,18 @@ const BookMenu: React.FC = () => {
         onSubmit={handleAddExam}
         loading={isSubmittingExam}
         parentChapter={parentChapter}
+        bookId={id || ''}
+      />
+
+      <EditDrawer
+        menuBook={selectedMenuBook}
+        open={isEditDrawerOpen}
+        onClose={() => {
+          setIsEditDrawerOpen(false);
+          setSelectedMenuBook(null);
+        }}
+        onSubmit={handleEditSubmit}
+        loading={isSubmittingEdit || loadingMenuBookDetails}
       />
     </div>
   );

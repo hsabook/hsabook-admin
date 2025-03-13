@@ -1,2 +1,2 @@
-export { default } from './AddExamDrawer';
+export { default as AddDrawer } from './AddExamDrawer';
 export * from './types';

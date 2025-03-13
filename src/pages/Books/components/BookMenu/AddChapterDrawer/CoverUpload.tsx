@@ -56,7 +56,7 @@ const CoverUpload: React.FC<CoverUploadProps> = ({ value, onChange }) => {
         const uploadedFile = {
           uid: file.uid,
           name: file.name,
-          status: 'done',
+          status: 'done' as const,
           url: url,
         };
 
@@ -106,19 +106,15 @@ const CoverUpload: React.FC<CoverUploadProps> = ({ value, onChange }) => {
       <style>{`
         /* Container styles */
         .cover-upload {
-          width: 400px !important;
-        }
-
-        .cover-upload .ant-upload-wrapper {
           width: 100% !important;
         }
 
         /* Upload button styles */
         .cover-upload .ant-upload.ant-upload-select {
-          width: 400px !important;
-          height: 225px !important; /* 16:9 aspect ratio */
+          width: 100% !important;
+          height: 225px !important;
           margin: 0;
-          border: 2px dashed #d9d9d9;
+          border: 1px dashed #d9d9d9;
           border-radius: 8px;
           background: #fafafa;
           transition: all 0.3s;
@@ -129,7 +125,6 @@ const CoverUpload: React.FC<CoverUploadProps> = ({ value, onChange }) => {
 
         .cover-upload .ant-upload.ant-upload-select:hover {
           border-color: #45b630;
-          background: #f6ffed;
         }
 
         /* Upload placeholder styles */
@@ -145,11 +140,11 @@ const CoverUpload: React.FC<CoverUploadProps> = ({ value, onChange }) => {
 
         /* Preview list styles */
         .cover-upload .ant-upload-list {
-          width: 400px !important;
+          width: 100% !important;
         }
 
         .cover-upload .ant-upload-list-item-container {
-          width: 400px !important;
+          width: 100% !important;
           height: 225px !important;
           margin: 0 !important;
           padding: 0 !important;

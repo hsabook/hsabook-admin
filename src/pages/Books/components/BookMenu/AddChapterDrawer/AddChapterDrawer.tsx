@@ -1,5 +1,5 @@
 import React from 'react';
-import { Drawer, Form, Input, Switch, Button, Space, Alert } from 'antd';
+import { Drawer, Form, Input, Switch, Button, Space, Alert, message } from 'antd';
 import RichTextEditor from '../../../../../components/RichTextEditor';
 import CoverUpload from './CoverUpload';
 import VideoUpload from './VideoUpload';
@@ -31,6 +31,7 @@ const AddChapterDrawer: React.FC<AddChapterDrawerProps> = ({
       form.resetFields();
     } catch (error) {
       console.error('Validation failed:', error);
+      message.error('Vui lòng điền đầy đủ các trường bắt buộc');
     }
   };
 
@@ -106,6 +107,27 @@ const AddChapterDrawer: React.FC<AddChapterDrawerProps> = ({
                 <Switch checkedChildren="Tạo code ID" unCheckedChildren="Không tạo code ID" />
               </Form.Item>
             </Space>
+
+            {/* Additional Fields - Hidden as requested */}
+            {/* 
+            <div className="flex gap-4 mt-4">
+              <Form.Item
+                name="duration"
+                label={<span className="text-base">Thời gian làm bài (phút)</span>}
+                className="flex-1"
+              >
+                <Input type="number" min={0} placeholder="Nhập thời gian" />
+              </Form.Item>
+
+              <Form.Item
+                name="question_count"
+                label={<span className="text-base">Số lượng câu hỏi</span>}
+                className="flex-1"
+              >
+                <Input type="number" min={0} placeholder="Nhập số lượng câu" />
+              </Form.Item>
+            </div>
+            */}
           </div>
         </div>
 

@@ -5,8 +5,15 @@ import type { MenuBook } from '../../../../api/menu-book/types';
 
 const { Text } = Typography;
 
+// Extended type for MenuBook with optional fields
+interface ExtendedMenuBook extends MenuBook {
+  description?: string;
+  active_code_id?: boolean;
+  video?: string;
+}
+
 interface DeleteMenuBookModalProps {
-  menuBook: MenuBook | null;
+  menuBook: ExtendedMenuBook | null;
   open: boolean;
   onCancel: () => void;
   onConfirm: () => void;
@@ -19,48 +26,42 @@ const DeleteMenuBookModal: React.FC<DeleteMenuBookModalProps> = ({
   open,
   onCancel,
   onConfirm,
-  loading,
-  error
+  loading = false,
+  error = null,
 }) => {
-  if (!menuBook) return null;
-
   return (
     <Modal
       title={
-        <div className="flex items-center gap-2 text-red-500">
-          <ExclamationCircleOutlined />
-          <span>Xác nhận xóa mục</span>
+        <div className="flex items-center text-red-600">
+          <ExclamationCircleOutlined className="mr-2" />
+          <span>Xác nhận xóa</span>
         </div>
       }
       open={open}
       onCancel={onCancel}
-      onOk={onConfirm}
+      confirmLoading={loading}
       okText="Xóa"
       cancelText="Hủy"
-      confirmLoading={loading}
-      okButtonProps={{ 
-        danger: true,
-      }}
+      okButtonProps={{ danger: true }}
+      onOk={onConfirm}
     >
       <div className="space-y-4">
-        <div className="py-2">
-          <p>
-            Bạn có chắc chắn muốn xóa mục{' '}
-            <Text strong>"{menuBook.title}"</Text> không?
-          </p>
-          <Text type="secondary" className="block mt-1">
-            Hành động này không thể hoàn tác.
-          </Text>
-        </div>
-
         {error && (
           <Alert
-            message={error}
+            message="Lỗi"
+            description={error}
             type="error"
             showIcon
-            className="mt-4"
           />
         )}
+        
+        <p>
+          Bạn có chắc chắn muốn xóa mục <Text strong>"{menuBook?.title}"</Text> không?
+        </p>
+        
+        <p>
+          Hành động này không thể hoàn tác. Tất cả dữ liệu liên quan sẽ bị xóa vĩnh viễn.
+        </p>
       </div>
     </Modal>
   );

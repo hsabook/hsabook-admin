@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Radio, Space, Button, Upload, message } from 'antd';
 import { UploadOutlined, DatabaseOutlined, FileWordOutlined } from '@ant-design/icons';
 import { uploadFile } from '../../../../../api/upload';
-import type { UploadFile } from 'antd/es/upload/interface';
+import type { UploadFile, UploadFileStatus } from 'antd/es/upload/interface';
 
 interface ExamUploadProps {
   value?: UploadFile;
@@ -13,6 +13,12 @@ const ExamUpload: React.FC<ExamUploadProps> = ({ value, onChange }) => {
   const [uploadType, setUploadType] = useState<'repository' | 'file' | null>(null);
 
   const handleBeforeUpload = (file: File) => {
+    // Check for empty files
+    if (file.size === 0) {
+      message.error('File rỗng không được chấp nhận');
+      return Upload.LIST_IGNORE;
+    }
+
     // Only accept .docx files
     if (file.type !== 'application/vnd.openxmlformats-officedocument.wordprocessingml.document') {
       message.error('Chỉ chấp nhận file DOCX');
@@ -39,20 +45,24 @@ const ExamUpload: React.FC<ExamUploadProps> = ({ value, onChange }) => {
     // Handle new file upload
     if (file.status === 'uploading' && !file.url) {
       try {
+        console.log('🔍 Debug - File being uploaded:', file);
         const url = await uploadFile(file.originFileObj);
+        console.log('🔍 Debug - Upload URL:', url);
         
         // Create new file object with URL
-        const uploadedFile = {
+        const uploadedFile: UploadFile = {
           uid: file.uid,
           name: file.name,
-          status: 'done',
+          status: 'done' as UploadFileStatus,
           url: url,
           size: file.size,
           type: file.type,
         };
         
+        console.log('🔍 Debug - Uploaded file object:', uploadedFile);
         onChange?.(uploadedFile);
       } catch (error) {
+        console.error('🔍 Debug - Upload error:', error);
         message.error('Không thể tải lên file');
         onChange?.(undefined);
       }
@@ -65,6 +75,15 @@ const ExamUpload: React.FC<ExamUploadProps> = ({ value, onChange }) => {
       onChange?.(undefined);
     }
     setUploadType(type);
+  };
+
+  // Helper function to format file size
+  const formatFileSize = (bytes: number): string => {
+    if (bytes === 0) return '0 Bytes';
+    const k = 1024;
+    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return `${parseFloat((bytes / Math.pow(k, i)).toFixed(2))} ${sizes[i]}`;
   };
 
   return (
@@ -151,14 +170,14 @@ const ExamUpload: React.FC<ExamUploadProps> = ({ value, onChange }) => {
 
       {/* Display selected file info */}
       {value && uploadType === 'file' && (
-        <div className="mt-4 border rounded-lg p-4 bg-gray-50">
+        <div className={`mt-4 border rounded-lg p-4 ${value.size === 0 ? 'bg-red-50 border-red-300' : 'bg-gray-50'}`}>
           <div className="flex items-center justify-between">
             <Space>
-              <FileWordOutlined className="text-[#2B579A] text-lg" />
+              <FileWordOutlined className={`text-lg ${value.size === 0 ? 'text-red-500' : 'text-[#2B579A]'}`} />
               <div>
                 <div className="font-medium">{value.name}</div>
-                <div className="text-sm text-gray-500">
-                  {formatFileSize(value.size || 0)}
+                <div className={`text-sm ${value.size === 0 ? 'text-red-500 font-medium' : 'text-gray-500'}`}>
+                  {value.size === 0 ? 'File rỗng - Vui lòng chọn file khác' : formatFileSize(value.size || 0)}
                 </div>
               </div>
             </Space>
@@ -188,6 +207,11 @@ const ExamUpload: React.FC<ExamUploadProps> = ({ value, onChange }) => {
               </Upload>
             </Space>
           </div>
+          {value.size === 0 && (
+            <div className="mt-2 text-red-500 text-sm">
+              File rỗng không thể được sử dụng. Vui lòng chọn một file khác.
+            </div>
+          )}
         </div>
       )}
 
@@ -199,15 +223,6 @@ const ExamUpload: React.FC<ExamUploadProps> = ({ value, onChange }) => {
       )}
     </div>
   );
-};
-
-// Helper function to format file size
-const formatFileSize = (bytes: number): string => {
-  if (bytes === 0) return '0 Bytes';
-  const k = 1024;
-  const sizes = ['Bytes', 'KB', 'MB', 'GB'];
-  const i = Math.floor(Math.log(bytes) / Math.log(k));
-  return `${parseFloat((bytes / Math.pow(k, i)).toFixed(2))} ${sizes[i]}`;
 };
 
 export default ExamUpload;
