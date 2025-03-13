@@ -6,6 +6,8 @@ import { UploadOutlined, ImportOutlined, DatabaseOutlined, PlusOutlined, Youtube
 import { uploadFile } from '../../../../../api/upload';
 import RichTextEditor from '../../../../../components/RichTextEditor';
 import ExamsListDrawer from './ExamsListDrawer';
+import ExamDetailDrawer from '../../../../../components/ExamDetailDrawer';
+import { QUESTION_TYPE, HighSchoolSubjects } from '../../../../../components/QuestionModal/QuestionModal';
 
 interface AddDrawerProps {
   open: boolean;
@@ -50,6 +52,10 @@ const AddDrawer: React.FC<AddDrawerProps> = ({
   const [examDocUrl, setExamDocUrl] = useState<string>('');
   const [examDocFileName, setExamDocFileName] = useState<string>('');
   const [uploadingDoc, setUploadingDoc] = useState<boolean>(false);
+
+  // Thêm state để hiển thị ExamDetailDrawer
+  const [isExamDetailVisible, setIsExamDetailVisible] = useState<boolean>(false);
+  const [selectedExamId, setSelectedExamId] = useState<string | null>(null);
 
   // Kiểm tra xem có phải là loại DE hay không
   const isExamType = type === 'DE';
@@ -408,489 +414,515 @@ const AddDrawer: React.FC<AddDrawerProps> = ({
 
   // Thêm hàm xử lý xem chi tiết bộ đề
   const handleViewExamDetails = (examId: string) => {
-    console.log("🔍 Xem chi tiết bộ đề:", examId);
-    message.info(`Xem chi tiết bộ đề: ${examId}`);
-    // Tại đây có thể mở modal hoặc drawer hiển thị chi tiết bộ đề
+    console.log("🔍 ExamDetailDrawer xem chi tiết bộ đề:", examId);
+    setSelectedExamId(examId);
+    setIsExamDetailVisible(true);
+  };
+
+  // Hàm đóng ExamDetailDrawer
+  const handleCloseExamDetail = () => {
+    setIsExamDetailVisible(false);
+    setSelectedExamId(null);
   };
 
   return (
-    <Drawer
-      title={getDrawerTitle()}
-      open={open}
-      onClose={handleClose}
-      width="80%"
-      headerStyle={{ borderBottom: '1px solid #f0f0f0', padding: '16px 24px' }}
-      bodyStyle={{ padding: '24px' }}
-      extra={
-        <Space>
-          <Button onClick={handleClose}>
-            Hủy
-          </Button>
-          <Button
-            type="primary"
-            onClick={handleSubmit}
-            loading={loading}
-            className="bg-green-500 hover:bg-green-600"
-          >
-            Lưu
-          </Button>
-        </Space>
-      }
-    >
-      {parentChapter && (
-        <Alert
-          message={getAlertMessage()}
-          type="info"
-          showIcon
-          className="mb-6"
-        />
-      )}
-
-      <Form
-        form={form}
-        layout="vertical"
-        className="mt-4"
-        initialValues={{
-          difficulty: 'medium',
-          description: '',
-          book_id: bookId,
-          type: type, // Sử dụng giá trị type trực tiếp
-          video: '',
-          attached: [],
-          exam_id: '',
-          exam_url_doc: '', // Thêm giá trị khởi tạo cho exam_url_doc
-        }}
-      >
-        {/* Các trường ẩn cho yêu cầu API */}
-        <Form.Item name="book_id" hidden initialValue={bookId}>
-          <Input />
-        </Form.Item>
-        
-        <Form.Item name="type" hidden initialValue={type}>
-          <Input />
-        </Form.Item>
-        
-        <Form.Item name="attached" hidden initialValue={[]}>
-          <Input />
-        </Form.Item>
-        
-        <Form.Item name="video" hidden>
-          <Input />
-        </Form.Item>
-
-        <Form.Item name="exam_url_doc" hidden>
-          <Input />
-        </Form.Item>
-
-        {/* Phần ảnh bìa và tiêu đề - Thiết kế lại */}
-        <div className="grid grid-cols-2 gap-6 mb-6">
-          <div>
-            <div className="text-lg font-medium mb-2">Ảnh bìa</div>
-            <Form.Item name="cover" className="mb-1">
-              <Upload
-                listType="picture-card"
-                className="cover-upload"
-                fileList={fileList}
-                showUploadList={false}
-                beforeUpload={(file) => {
-                  // Kiểm tra loại file
-                  const isImage = file.type.startsWith('image/');
-                  if (!isImage) {
-                    message.error('Chỉ chấp nhận file hình ảnh!');
-                    return Upload.LIST_IGNORE;
-                  }
-
-                  // Kiểm tra kích thước file (tối đa 5MB)
-                  const maxSize = 5 * 1024 * 1024;
-                  if (file.size > maxSize) {
-                    message.error('Kích thước ảnh không được vượt quá 5MB!');
-                    return Upload.LIST_IGNORE;
-                  }
-
-                  return true; // Cho phép tải lên
-                }}
-                onChange={handleCoverChange}
-                customRequest={({ file, onSuccess }) => {
-                  // Đây là triển khai giả, việc tải lên thực tế xảy ra trong handleCoverChange
-                  setTimeout(() => {
-                    onSuccess?.('ok');
-                  }, 0);
-                }}
-                accept="image/png,image/jpeg,image/jpg"
-              >
-                {fileList.length === 0 ? (
-                  <div className="upload-placeholder">
-                    <PlusOutlined className="text-2xl mb-2" />
-                    <div className="font-medium">Tải ảnh lên</div>
-                    <div className="text-xs text-gray-500 mt-1">
-                      PNG, JPG, JPEG (Tối đa: 5MB)
-                    </div>
-                  </div>
-                ) : (
-                  <div className="relative w-full h-full">
-                    <img 
-                      src={fileList[0].url} 
-                      alt="Cover" 
-                      className="w-full h-full object-contain" 
-                    />
-                    <div 
-                      className="absolute top-0 right-0 p-2 cursor-pointer"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setFileList([]);
-                        form.setFieldsValue({ cover: '' });
-                      }}
-                    >
-                      <Button 
-                        type="text" 
-                        size="small" 
-                        className="flex items-center justify-center bg-white rounded-full w-6 h-6 shadow"
-                        icon={<span className="text-gray-600">×</span>}
-                      />
-                    </div>
-                  </div>
-                )}
-              </Upload>
-            </Form.Item>
-            <div className="text-xs text-gray-500 mt-1">
-              PNG, JPG, JPEG (Tối đa: 5MB)
-            </div>
-            <style>{`
-              .cover-upload .ant-upload.ant-upload-select {
-                width: 100% !important;
-                height: 225px !important;
-                margin: 0;
-                border: 1px dashed #d9d9d9;
-                border-radius: 8px;
-                background: #fafafa;
-              }
-
-              .cover-upload .ant-upload.ant-upload-select:hover {
-                border-color: #45b630;
-              }
-
-              .cover-upload .upload-placeholder {
-                width: 100%;
-                height: 100%;
-                display: flex;
-                flex-direction: column;
-                align-items: center;
-                justify-content: center;
-                color: #666;
-              }
-            `}</style>
-          </div>
-          
-          <div>
-            <div className="flex items-center mb-2">
-              <span className="text-lg font-medium">Tiêu đề</span>
-              <span className="text-red-500 ml-1">*</span>
-            </div>
-            <Form.Item
-              name="title"
-              rules={[{ required: true, message: 'Vui lòng nhập tiêu đề' }]}
-              className="mb-4"
+    <>
+      <Drawer
+        title={getDrawerTitle()}
+        open={open}
+        onClose={handleClose}
+        width="80%"
+        headerStyle={{ borderBottom: '1px solid #f0f0f0', padding: '16px 24px' }}
+        bodyStyle={{ padding: '24px' }}
+        extra={
+          <Space>
+            <Button onClick={handleClose}>
+              Hủy
+            </Button>
+            <Button
+              type="primary"
+              onClick={handleSubmit}
+              loading={loading}
+              className="bg-green-500 hover:bg-green-600"
             >
-              <Input placeholder="Nhập tiêu đề" size="large" className="rounded-lg" />
-            </Form.Item>
-            
-            <div className="flex space-x-4">
-              <Form.Item className="mb-0 flex-1">
-                <div className="flex items-center justify-between rounded-lg px-4 py-2 border">
-                  <span>Kích hoạt</span>
-                  <Switch 
-                    className="custom-switch-green" 
-                    checked={isActive}
-                    onChange={(checked) => {
-                      console.log("Kích hoạt thay đổi:", checked);
-                      setIsActive(checked);
-                    }}
-                  />
-                </div>
-              </Form.Item>
-              
-              <Form.Item className="mb-0 flex-1">
-                <div className="flex items-center justify-between rounded-lg px-4 py-2 border">
-                  <span>Tạo code ID</span>
-                  <Switch 
-                    className="custom-switch-green" 
-                    checked={isActiveCodeId}
-                    onChange={(checked) => {
-                      console.log("Tạo code ID thay đổi:", checked);
-                      setIsActiveCodeId(checked);
-                    }}
-                  />
-                </div>
-              </Form.Item>
-            </div>
-
-            <style>{`
-              .custom-switch-green.ant-switch-checked {
-                background-color: #4CAF50 !important;
-              }
-            `}</style>
-          </div>
-        </div>
-
-        {/* Mô tả */}
-        <Form.Item
-          label="Mô tả"
-          name="description"
-          className="mb-6"
-        >
-          <RichTextEditor 
-            placeholder={getDescriptionPlaceholder()}
+              Lưu
+            </Button>
+          </Space>
+        }
+      >
+        {parentChapter && (
+          <Alert
+            message={getAlertMessage()}
+            type="info"
+            showIcon
+            className="mb-6"
           />
-        </Form.Item>
-
-        {/* Phần video - Chỉ hiển thị cho DE */}
-        {isExamType && (
-          <div className="mb-6">
-            <div className="text-lg font-medium mb-4">Thêm video minh họa</div>
-            
-            {!hasVideo && (
-              <div className="grid grid-cols-2 gap-4">
-                <Card
-                  hoverable
-                  className={`cursor-pointer transition-all ${videoType === 'upload' ? 'border-[#45b630] bg-[#f6ffed]' : 'hover:border-[#45b630]'}`}
-                  onClick={() => handleVideoTypeChange('upload')}
-                >
-                  <div className="flex flex-col items-center justify-center text-center">
-                    <UploadOutlined className="text-2xl mb-2 text-[#45b630]" />
-                    <div className="font-medium">Tải lên video</div>
-                    <div className="text-xs text-gray-500 mt-1">Tải lên video từ máy tính</div>
-                  </div>
-                </Card>
-
-                <Card
-                  hoverable
-                  className={`cursor-pointer transition-all ${videoType === 'embed' ? 'border-[#45b630] bg-[#f6ffed]' : 'hover:border-[#45b630]'}`}
-                  onClick={() => handleVideoTypeChange('embed')}
-                >
-                  <div className="flex flex-col items-center justify-center text-center">
-                    <YoutubeOutlined className="text-2xl mb-2 text-red-500" />
-                    <div className="font-medium">Nhúng video</div>
-                    <div className="text-xs text-gray-500 mt-1">Nhúng video từ YouTube hoặc URL</div>
-                  </div>
-                </Card>
-              </div>
-            )}
-
-            {videoType === 'upload' && (
-              <div className="mt-4 p-4 bg-gray-50 rounded-lg">
-                <Upload
-                  fileList={videoFileList}
-                  onChange={handleVideoUpload}
-                  beforeUpload={() => false}
-                  maxCount={1}
-                  className="w-full"
-                >
-                  <Button icon={<UploadOutlined />} className="w-full h-12">
-                    Chọn video từ máy tính
-                  </Button>
-                </Upload>
-                <div className="mt-2 text-xs text-gray-500">
-                  Hỗ trợ: MP4, MOV, WebM (Tối đa 5MB)
-                </div>
-
-                {videoUrl && (
-                  <div className="mt-4">
-                    <div className="flex justify-between items-center mb-2">
-                      <h4 className="text-sm font-medium">Xem trước video:</h4>
-                      <Button 
-                        type="primary" 
-                        danger 
-                        icon={<DeleteOutlined />} 
-                        size="small"
-                        onClick={handleRemoveVideo}
-                      >
-                        Xóa
-                      </Button>
-                    </div>
-                    <div className="relative pt-[40%] bg-black rounded overflow-hidden max-w-2xl mx-auto">
-                      <video 
-                        src={videoUrl}
-                        controls 
-                        className="absolute top-0 left-0 w-full h-full"
-                      />
-                    </div>
-                  </div>
-                )}
-              </div>
-            )}
-
-            {videoType === 'embed' && (
-              <div className="mt-4 p-4 bg-gray-50 rounded-lg">
-                <Form.Item name="embedVideo" className="mb-1">
-                  <Input.TextArea
-                    placeholder="Dán mã nhúng iframe từ YouTube hoặc các nền tảng khác"
-                    rows={3}
-                    onChange={handleEmbedCodeChange}
-                  />
-                </Form.Item>
-                <div className="text-xs text-gray-500">
-                  Ví dụ: <code>&lt;iframe src="https://www.youtube.com/embed/..."&gt;&lt;/iframe&gt;</code>
-                </div>
-
-                {embedCode && (
-                  <div className="mt-4">
-                    <div className="flex justify-between items-center mb-2">
-                      <h4 className="text-sm font-medium">Xem trước video:</h4>
-                      <Button 
-                        type="primary" 
-                        danger 
-                        icon={<DeleteOutlined />} 
-                        size="small"
-                        onClick={handleRemoveVideo}
-                      >
-                        Xóa
-                      </Button>
-                    </div>
-                    <div className="relative pt-[40%] bg-black rounded overflow-hidden max-w-2xl mx-auto">
-                      {embedCode.includes('<iframe') ? (
-                        <div
-                          className="absolute top-0 left-0 w-full h-full"
-                          dangerouslySetInnerHTML={{ 
-                            __html: embedCode.replace('<iframe', '<iframe style="width:100%;height:100%;position:absolute;top:0;left:0;border:0;"') 
-                          }}
-                        />
-                      ) : (
-                        <div className="absolute top-0 left-0 w-full h-full flex items-center justify-center bg-gray-200 text-gray-500">
-                          Vui lòng nhập mã nhúng iframe hợp lệ
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
         )}
 
-        {/* Phần đính kèm bộ đề - Chỉ hiển thị cho DE */}
-        {isExamType && (
-          <Form.Item
-            label="Đính kèm bộ đề"
-            className="mb-6"
-          >
-            <div className="flex gap-4">
-              {selectedExams.length === 0 && (
-                <Button 
-                  className="border rounded-md px-4 py-2 flex items-center"
-                  onClick={() => setIsExamListDrawerOpen(true)}
+        <Form
+          form={form}
+          layout="vertical"
+          className="mt-4"
+          initialValues={{
+            difficulty: 'medium',
+            description: '',
+            book_id: bookId,
+            type: type, // Sử dụng giá trị type trực tiếp
+            video: '',
+            attached: [],
+            exam_id: '',
+            exam_url_doc: '', // Thêm giá trị khởi tạo cho exam_url_doc
+          }}
+        >
+          {/* Các trường ẩn cho yêu cầu API */}
+          <Form.Item name="book_id" hidden initialValue={bookId}>
+            <Input />
+          </Form.Item>
+          
+          <Form.Item name="type" hidden initialValue={type}>
+            <Input />
+          </Form.Item>
+          
+          <Form.Item name="attached" hidden initialValue={[]}>
+            <Input />
+          </Form.Item>
+          
+          <Form.Item name="video" hidden>
+            <Input />
+          </Form.Item>
+
+          <Form.Item name="exam_url_doc" hidden>
+            <Input />
+          </Form.Item>
+
+          {/* Phần ảnh bìa và tiêu đề - Thiết kế lại */}
+          <div className="grid grid-cols-2 gap-6 mb-6">
+            <div>
+              <div className="text-lg font-medium mb-2">Ảnh bìa</div>
+              <Form.Item name="cover" className="mb-1">
+                <Upload
+                  listType="picture-card"
+                  className="cover-upload"
+                  fileList={fileList}
+                  showUploadList={false}
+                  beforeUpload={(file) => {
+                    // Kiểm tra loại file
+                    const isImage = file.type.startsWith('image/');
+                    if (!isImage) {
+                      message.error('Chỉ chấp nhận file hình ảnh!');
+                      return Upload.LIST_IGNORE;
+                    }
+
+                    // Kiểm tra kích thước file (tối đa 5MB)
+                    const maxSize = 5 * 1024 * 1024;
+                    if (file.size > maxSize) {
+                      message.error('Kích thước ảnh không được vượt quá 5MB!');
+                      return Upload.LIST_IGNORE;
+                    }
+
+                    return true; // Cho phép tải lên
+                  }}
+                  onChange={handleCoverChange}
+                  customRequest={({ file, onSuccess }) => {
+                    // Đây là triển khai giả, việc tải lên thực tế xảy ra trong handleCoverChange
+                    setTimeout(() => {
+                      onSuccess?.('ok');
+                    }, 0);
+                  }}
+                  accept="image/png,image/jpeg,image/jpg"
                 >
-                  <DatabaseOutlined className="mr-2" /> Thêm từ kho câu hỏi
-                </Button>
-              )}
-              
-              <Upload
-                beforeUpload={handleDocUpload}
-                showUploadList={false}
-                maxCount={1}
-                accept=".doc,.docx"
-                disabled={uploadingDoc || !!examDocUrl}
-              >
-                <Button 
-                  className="border rounded-md px-4 py-2 flex items-center"
-                  loading={uploadingDoc}
-                >
-                  <ImportOutlined className="mr-2" /> Import
-                </Button>
-              </Upload>
+                  {fileList.length === 0 ? (
+                    <div className="upload-placeholder">
+                      <PlusOutlined className="text-2xl mb-2" />
+                      <div className="font-medium">Tải ảnh lên</div>
+                      <div className="text-xs text-gray-500 mt-1">
+                        PNG, JPG, JPEG (Tối đa: 5MB)
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="relative w-full h-full">
+                      <img 
+                        src={fileList[0].url} 
+                        alt="Cover" 
+                        className="w-full h-full object-contain" 
+                      />
+                      <div 
+                        className="absolute top-0 right-0 p-2 cursor-pointer"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setFileList([]);
+                          form.setFieldsValue({ cover: '' });
+                        }}
+                      >
+                        <Button 
+                          type="text" 
+                          size="small" 
+                          className="flex items-center justify-center bg-white rounded-full w-6 h-6 shadow"
+                          icon={<span className="text-gray-600">×</span>}
+                        />
+                      </div>
+                    </div>
+                  )}
+                </Upload>
+              </Form.Item>
+              <div className="text-xs text-gray-500 mt-1">
+                PNG, JPG, JPEG (Tối đa: 5MB)
+              </div>
+              <style>{`
+                .cover-upload .ant-upload.ant-upload-select {
+                  width: 100% !important;
+                  height: 225px !important;
+                  margin: 0;
+                  border: 1px dashed #d9d9d9;
+                  border-radius: 8px;
+                  background: #fafafa;
+                }
+
+                .cover-upload .ant-upload.ant-upload-select:hover {
+                  border-color: #45b630;
+                }
+
+                .cover-upload .upload-placeholder {
+                  width: 100%;
+                  height: 100%;
+                  display: flex;
+                  flex-direction: column;
+                  align-items: center;
+                  justify-content: center;
+                  color: #666;
+                }
+              `}</style>
             </div>
             
-            {examDocUrl && (
-              <div className="mt-4 p-4 bg-gray-50 rounded-lg">
-                <div className="flex justify-between items-center">
-                  <div className="flex items-center">
-                    <FileOutlined className="text-blue-500 text-xl mr-2" />
-                    <div>
-                      <div className="font-medium">{examDocFileName}</div>
-                      <div className="text-xs text-gray-500">File đã tải lên thành công</div>
-                    </div>
+            <div>
+              <div className="flex items-center mb-2">
+                <span className="text-lg font-medium">Tiêu đề</span>
+                <span className="text-red-500 ml-1">*</span>
+              </div>
+              <Form.Item
+                name="title"
+                rules={[{ required: true, message: 'Vui lòng nhập tiêu đề' }]}
+                className="mb-4"
+              >
+                <Input placeholder="Nhập tiêu đề" size="large" className="rounded-lg" />
+              </Form.Item>
+              
+              <div className="flex space-x-4">
+                <Form.Item className="mb-0 flex-1">
+                  <div className="flex items-center justify-between rounded-lg px-4 py-2 border">
+                    <span>Kích hoạt</span>
+                    <Switch 
+                      className="custom-switch-green" 
+                      checked={isActive}
+                      onChange={(checked) => {
+                        console.log("Kích hoạt thay đổi:", checked);
+                        setIsActive(checked);
+                      }}
+                    />
                   </div>
+                </Form.Item>
+                
+                <Form.Item className="mb-0 flex-1">
+                  <div className="flex items-center justify-between rounded-lg px-4 py-2 border">
+                    <span>Tạo code ID</span>
+                    <Switch 
+                      className="custom-switch-green" 
+                      checked={isActiveCodeId}
+                      onChange={(checked) => {
+                        console.log("Tạo code ID thay đổi:", checked);
+                        setIsActiveCodeId(checked);
+                      }}
+                    />
+                  </div>
+                </Form.Item>
+              </div>
+
+              <style>{`
+                .custom-switch-green.ant-switch-checked {
+                  background-color: #4CAF50 !important;
+                }
+              `}</style>
+            </div>
+          </div>
+
+          {/* Mô tả */}
+          <Form.Item
+            label="Mô tả"
+            name="description"
+            className="mb-6"
+          >
+            <RichTextEditor 
+              placeholder={getDescriptionPlaceholder()}
+            />
+          </Form.Item>
+
+          {/* Phần video - Chỉ hiển thị cho DE */}
+          {isExamType && (
+            <div className="mb-6">
+              <div className="text-lg font-medium mb-4">Thêm video minh họa</div>
+              
+              {!hasVideo && (
+                <div className="grid grid-cols-2 gap-4">
+                  <Card
+                    hoverable
+                    className={`cursor-pointer transition-all ${videoType === 'upload' ? 'border-[#45b630] bg-[#f6ffed]' : 'hover:border-[#45b630]'}`}
+                    onClick={() => handleVideoTypeChange('upload')}
+                  >
+                    <div className="flex flex-col items-center justify-center text-center">
+                      <UploadOutlined className="text-2xl mb-2 text-[#45b630]" />
+                      <div className="font-medium">Tải lên video</div>
+                      <div className="text-xs text-gray-500 mt-1">Tải lên video từ máy tính</div>
+                    </div>
+                  </Card>
+
+                  <Card
+                    hoverable
+                    className={`cursor-pointer transition-all ${videoType === 'embed' ? 'border-[#45b630] bg-[#f6ffed]' : 'hover:border-[#45b630]'}`}
+                    onClick={() => handleVideoTypeChange('embed')}
+                  >
+                    <div className="flex flex-col items-center justify-center text-center">
+                      <YoutubeOutlined className="text-2xl mb-2 text-red-500" />
+                      <div className="font-medium">Nhúng video</div>
+                      <div className="text-xs text-gray-500 mt-1">Nhúng video từ YouTube hoặc URL</div>
+                    </div>
+                  </Card>
+                </div>
+              )}
+
+              {videoType === 'upload' && (
+                <div className="mt-4 p-4 bg-gray-50 rounded-lg">
+                  <Upload
+                    fileList={videoFileList}
+                    onChange={handleVideoUpload}
+                    beforeUpload={() => false}
+                    maxCount={1}
+                    className="w-full"
+                  >
+                    <Button icon={<UploadOutlined />} className="w-full h-12">
+                      Chọn video từ máy tính
+                    </Button>
+                  </Upload>
+                  <div className="mt-2 text-xs text-gray-500">
+                    Hỗ trợ: MP4, MOV, WebM (Tối đa 5MB)
+                  </div>
+
+                  {videoUrl && (
+                    <div className="mt-4">
+                      <div className="flex justify-between items-center mb-2">
+                        <h4 className="text-sm font-medium">Xem trước video:</h4>
+                        <Button 
+                          type="primary" 
+                          danger 
+                          icon={<DeleteOutlined />} 
+                          size="small"
+                          onClick={handleRemoveVideo}
+                        >
+                          Xóa
+                        </Button>
+                      </div>
+                      <div className="relative pt-[40%] bg-black rounded overflow-hidden max-w-2xl mx-auto">
+                        <video 
+                          src={videoUrl}
+                          controls 
+                          className="absolute top-0 left-0 w-full h-full"
+                        />
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {videoType === 'embed' && (
+                <div className="mt-4 p-4 bg-gray-50 rounded-lg">
+                  <Form.Item name="embedVideo" className="mb-1">
+                    <Input.TextArea
+                      placeholder="Dán mã nhúng iframe từ YouTube hoặc các nền tảng khác"
+                      rows={3}
+                      onChange={handleEmbedCodeChange}
+                    />
+                  </Form.Item>
+                  <div className="text-xs text-gray-500">
+                    Ví dụ: <code>&lt;iframe src="https://www.youtube.com/embed/..."&gt;&lt;/iframe&gt;</code>
+                  </div>
+
+                  {embedCode && (
+                    <div className="mt-4">
+                      <div className="flex justify-between items-center mb-2">
+                        <h4 className="text-sm font-medium">Xem trước video:</h4>
+                        <Button 
+                          type="primary" 
+                          danger 
+                          icon={<DeleteOutlined />} 
+                          size="small"
+                          onClick={handleRemoveVideo}
+                        >
+                          Xóa
+                        </Button>
+                      </div>
+                      <div className="relative pt-[40%] bg-black rounded overflow-hidden max-w-2xl mx-auto">
+                        {embedCode.includes('<iframe') ? (
+                          <div
+                            className="absolute top-0 left-0 w-full h-full"
+                            dangerouslySetInnerHTML={{ 
+                              __html: embedCode.replace('<iframe', '<iframe style="width:100%;height:100%;position:absolute;top:0;left:0;border:0;"') 
+                            }}
+                          />
+                        ) : (
+                          <div className="absolute top-0 left-0 w-full h-full flex items-center justify-center bg-gray-200 text-gray-500">
+                            Vui lòng nhập mã nhúng iframe hợp lệ
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Phần đính kèm bộ đề - Chỉ hiển thị cho DE */}
+          {isExamType && (
+            <Form.Item
+              label="Đính kèm bộ đề"
+              className="mb-6"
+            >
+              <div className="flex gap-4">
+                {selectedExams.length === 0 && (
+                  <Button 
+                    className="border rounded-md px-4 py-2 flex items-center"
+                    onClick={() => setIsExamListDrawerOpen(true)}
+                  >
+                    <DatabaseOutlined className="mr-2" /> Thêm từ kho câu hỏi
+                  </Button>
+                )}
+                
+                <Upload
+                  beforeUpload={handleDocUpload}
+                  showUploadList={false}
+                  maxCount={1}
+                  accept=".doc,.docx"
+                  disabled={uploadingDoc || !!examDocUrl}
+                >
+                  <Button 
+                    className="border rounded-md px-4 py-2 flex items-center"
+                    loading={uploadingDoc}
+                  >
+                    <ImportOutlined className="mr-2" /> Import
+                  </Button>
+                </Upload>
+              </div>
+              
+              {examDocUrl && (
+                <div className="mt-4 p-4 bg-gray-50 rounded-lg">
+                  <div className="flex justify-between items-center">
+                    <div className="flex items-center">
+                      <FileOutlined className="text-blue-500 text-xl mr-2" />
+                      <div>
+                        <div className="font-medium">{examDocFileName}</div>
+                        <div className="text-xs text-gray-500">File đã tải lên thành công</div>
+                      </div>
+                    </div>
+                    <Button 
+                      type="text" 
+                      icon={<DeleteOutlined />} 
+                      danger
+                      onClick={handleRemoveDocFile}
+                    >
+                      Xóa
+                    </Button>
+                  </div>
+                </div>
+              )}
+            </Form.Item>
+          )}
+
+          {/* Trường ẩn cho exam_id - Chỉ cho DE */}
+          {isExamType && (
+            <Form.Item name="exam_id" hidden initialValue="">
+              <Input />
+            </Form.Item>
+          )}
+
+          {/* Tiêu đề bảng - Chỉ hiển thị cho DE và khi có bộ đề được chọn hoặc không */}
+          {isExamType && (
+            <div className="grid grid-cols-5 gap-4 p-4 bg-gray-100 rounded-lg mb-6">
+              <div className="font-medium">Tên bộ đề</div>
+              <div className="font-medium">ID bộ đề</div>
+              <div className="font-medium">Trạng thái</div>
+              <div className="font-medium">Số câu hỏi</div>
+              <div className="font-medium text-right">Thao tác</div>
+            </div>
+          )}
+
+          {/* File đính kèm bổ sung - Ẩn - Chỉ cho DE */}
+          {isExamType && (
+            <Form.Item name="files" hidden>
+              <Input />
+            </Form.Item>
+          )}
+
+          {/* Hiển thị thông tin bộ đề đã chọn */}
+          {isExamType && selectedExams.length > 0 && (
+            <div className="grid grid-cols-5 gap-4 p-4 bg-white border rounded-lg mb-6">
+              <div>{selectedExams[0].title}</div>
+              <div>{selectedExams[0].code_id}</div>
+              <div>
+                <Badge 
+                  status={selectedExams[0].active ? "success" : "default"} 
+                  text={selectedExams[0].active ? "Kích hoạt" : "Vô hiệu"}
+                />
+              </div>
+              <div>{selectedExams[0].total_question || 0} câu</div>
+              <div className="text-right">
+                <div className="inline-flex space-x-2">
+                  <Button 
+                    type="text" 
+                    icon={<EyeOutlined />} 
+                    size="small"
+                    className="text-blue-500 hover:text-blue-700"
+                    onClick={() => handleViewExamDetails(selectedExams[0].id)}
+                    title="Xem chi tiết"
+                  />
                   <Button 
                     type="text" 
                     icon={<DeleteOutlined />} 
-                    danger
-                    onClick={handleRemoveDocFile}
-                  >
-                    Xóa
-                  </Button>
+                    size="small"
+                    className="text-red-500 hover:text-red-700"
+                    onClick={handleRemoveSelectedExam}
+                    title="Xóa bộ đề đã chọn"
+                  />
                 </div>
               </div>
-            )}
-          </Form.Item>
-        )}
-
-        {/* Trường ẩn cho exam_id - Chỉ cho DE */}
-        {isExamType && (
-          <Form.Item name="exam_id" hidden initialValue="">
-            <Input />
-          </Form.Item>
-        )}
-
-        {/* Tiêu đề bảng - Chỉ hiển thị cho DE và khi có bộ đề được chọn hoặc không */}
-        {isExamType && (
-          <div className="grid grid-cols-5 gap-4 p-4 bg-gray-100 rounded-lg mb-6">
-            <div className="font-medium">Tên bộ đề</div>
-            <div className="font-medium">ID bộ đề</div>
-            <div className="font-medium">Trạng thái</div>
-            <div className="font-medium">Số câu hỏi</div>
-            <div className="font-medium text-right">Thao tác</div>
-          </div>
-        )}
-
-        {/* File đính kèm bổ sung - Ẩn - Chỉ cho DE */}
-        {isExamType && (
-          <Form.Item name="files" hidden>
-            <Input />
-          </Form.Item>
-        )}
-
-        {/* Hiển thị thông tin bộ đề đã chọn */}
-        {isExamType && selectedExams.length > 0 && (
-          <div className="grid grid-cols-5 gap-4 p-4 bg-white border rounded-lg mb-6">
-            <div>{selectedExams[0].title}</div>
-            <div>{selectedExams[0].code_id}</div>
-            <div>
-              <Badge 
-                status={selectedExams[0].active ? "success" : "default"} 
-                text={selectedExams[0].active ? "Kích hoạt" : "Vô hiệu"}
-              />
             </div>
-            <div>{selectedExams[0].total_question || 0} câu</div>
-            <div className="text-right">
-              <div className="inline-flex space-x-2">
-                <Button 
-                  type="text" 
-                  icon={<EyeOutlined />} 
-                  size="small"
-                  className="text-blue-500 hover:text-blue-700"
-                  onClick={() => handleViewExamDetails(selectedExams[0].id)}
-                  title="Xem chi tiết"
-                />
-                <Button 
-                  type="text" 
-                  icon={<DeleteOutlined />} 
-                  size="small"
-                  className="text-red-500 hover:text-red-700"
-                  onClick={handleRemoveSelectedExam}
-                  title="Xóa bộ đề đã chọn"
-                />
-              </div>
-            </div>
-          </div>
-        )}
-      </Form>
+          )}
+        </Form>
 
-      {/* Drawer chọn bộ đề từ kho */}
-      <ExamsListDrawer
-        open={isExamListDrawerOpen}
-        onClose={() => setIsExamListDrawerOpen(false)}
-        onSelectExams={handleSelectExams}
+        {/* Drawer chọn bộ đề từ kho */}
+        <ExamsListDrawer
+          open={isExamListDrawerOpen}
+          onClose={() => setIsExamListDrawerOpen(false)}
+          onSelectExams={handleSelectExams}
+        />
+      </Drawer>
+      
+      {/* ExamDetailDrawer - đặt ở ngoài Drawer chính */}
+      <ExamDetailDrawer
+        visible={isExamDetailVisible}
+        onClose={handleCloseExamDetail}
+        examId={selectedExamId || undefined}
+        QUESTION_TYPE={QUESTION_TYPE}
+        HighSchoolSubjects={HighSchoolSubjects}
+        onExamUpdated={() => {
+          // Refresh danh sách bộ đề nếu có thay đổi
+          if (isExamListDrawerOpen) {
+            setIsExamListDrawerOpen(false);
+            setTimeout(() => {
+              setIsExamListDrawerOpen(true);
+            }, 300);
+          }
+        }}
       />
-    </Drawer>
+    </>
   );
 };
 

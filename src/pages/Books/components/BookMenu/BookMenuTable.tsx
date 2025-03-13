@@ -8,6 +8,7 @@ interface BookMenuTableProps {
   data: MenuBook[];
   loading?: boolean;
   onDelete: (menuBook: MenuBook) => void;
+  onEdit: (menuBook: MenuBook) => void;
   onAddChapter?: (parentChapter: MenuBook) => void;
   onAddExam?: (parentChapter: MenuBook) => void;
 }
@@ -16,6 +17,7 @@ const BookMenuTable: React.FC<BookMenuTableProps> = ({
   data, 
   loading,
   onDelete,
+  onEdit,
   onAddChapter,
   onAddExam
 }) => {
@@ -185,7 +187,11 @@ const BookMenuTable: React.FC<BookMenuTableProps> = ({
             </Tooltip>
           )}
           <Tooltip title="Sửa">
-            <Button type="text" icon={<EditOutlined className="text-blue-500" />} />
+            <Button 
+              type="text" 
+              icon={<EditOutlined className="text-blue-500" />} 
+              onClick={() => onEdit(record)} 
+            />
           </Tooltip>
           <Tooltip title="Xóa">
             <Button 
