@@ -1,68 +1,41 @@
 import { useEffect } from 'react';
-import { BrowserRouter, Routes, Route } from 'react-router-dom';
-import { ConfigProvider, message } from 'antd';
-import AdminLayout from './components/AdminLayout';
-import { useIsMobile } from './hooks/useIsMobile';
-import MobileWarning from './components/MobileWarning';
-import Login from './pages/Login';
-import PrivateRoute from './components/PrivateRoute';
+import { BrowserRouter as Router } from 'react-router-dom';
 import { useAuthStore } from './store/authStore';
-import CONFIG_APP from './utils/config';
+import { message } from 'antd';
+import AdminLayout from './components/AdminLayout';
+import Login from './pages/Login';
+import { checkUserLoginAndGetInfo } from './api/users/userService';
 
 function App() {
-  const isMobile = useIsMobile();
-  const { accessToken, logout } = useAuthStore();
+  const { isAuthenticated, logout, setUserInfo } = useAuthStore();
 
   useEffect(() => {
     const checkAuth = async () => {
-      if (accessToken) {
-        try {
-          const response = await fetch(CONFIG_APP.API_ENDPOINT + '/users/info', {
-            headers: {
-              'Authorization': `Bearer ${accessToken}`
-            }
-          });
-          
-          if (response.status !== 200 && response.status !== 201) {
-            message.error('Phiên đăng nhập đã hết hạn');
-            logout();
-          }
-        } catch (error) {
-          message.error('Có lỗi xảy ra khi kiểm tra đăng nhập');
+      try {
+        const { isLoggedIn, userInfo } = await checkUserLoginAndGetInfo();
+        
+        if (!isLoggedIn) {
+          message.error('Phiên đăng nhập đã hết hạn');
           logout();
+        } else if (userInfo) {
+          // Store user info in auth store
+          setUserInfo(userInfo);
         }
+      } catch (error) {
+        message.error('Có lỗi xảy ra khi kiểm tra đăng nhập');
+        logout();
       }
     };
 
-    checkAuth();
-  }, [accessToken, logout]);
-
-  if (isMobile) {
-    return <MobileWarning />;
-  }
+    if (isAuthenticated) {
+      checkAuth();
+    }
+  }, [isAuthenticated, logout, setUserInfo]);
 
   return (
-    <ConfigProvider
-      theme={{
-        token: {
-          colorPrimary: '#45b630',
-        },
-      }}
-    >
-      <BrowserRouter>
-        <Routes>
-          <Route path="/login" element={<Login />} />
-          <Route
-            path="/*"
-            element={
-              <PrivateRoute>
-                <AdminLayout />
-              </PrivateRoute>
-            }
-          />
-        </Routes>
-      </BrowserRouter>
-    </ConfigProvider>
+    <Router>
+      {isAuthenticated ? <AdminLayout /> : <Login />}
+    </Router>
   );
 }
 
