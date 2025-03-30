@@ -21,6 +21,7 @@ export interface User {
   rank: number | null;
   status: 'active' | 'inactive';
   book_visits: string[];
+  last_login: string;
 }
 
 export interface UsersResponse {

@@ -125,3 +125,19 @@ export const createUser = async (userData: {
     throw error;
   }
 };
+
+export const updateUserRole = async (userId: string, role: string): Promise<any> => {
+  const result = await api(`/users/${userId}`, {
+    method: 'PUT',
+    body: JSON.stringify({ role }),
+  });
+  return result;
+};
+
+export const updateUserStatus = async (userId: string, status: string): Promise<any> => {
+  const result = await api(`/users/${userId}`, {
+    method: 'PUT',
+    body: JSON.stringify({ status }),
+  });
+  return result;
+};

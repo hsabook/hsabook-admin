@@ -1,12 +1,11 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Card, Input, Select, Button, Table, Tag, Space, Badge, Tooltip, Pagination, Avatar, message, Drawer, Form, Upload } from 'antd';
-import { SearchOutlined, PlusOutlined, ReloadOutlined, LockOutlined, EditOutlined, CloseOutlined, UserOutlined, UploadOutlined, LoadingOutlined } from '@ant-design/icons';
+import { Card, Input, Select, Button, Table, Tag, Space, Badge, Tooltip, Pagination, Avatar, message, Drawer, Form, Upload, Modal, Popconfirm } from 'antd';
+import { SearchOutlined, PlusOutlined, ReloadOutlined, LockOutlined, UnlockOutlined, EditOutlined, CloseOutlined, UserOutlined, UploadOutlined, LoadingOutlined, QuestionCircleOutlined } from '@ant-design/icons';
 import type { TableProps } from 'antd';
-import { getUsers, createUser } from '../../api/users/userService';
+import { getUsers, createUser, updateUserRole, updateUserStatus } from '../../api/users/userService';
 import { uploadFile } from '../../api/upload/uploadService';
 import type { User } from '../../api/users/types';
 import type { RcFile } from 'antd/es/upload';
-import debounce from 'lodash/debounce';
 
 interface UserTableType {
   key: string;
@@ -15,9 +14,14 @@ interface UserTableType {
   email: string;
   type: string;
   role: string;
-  lastLogin: string;
+  last_login: string;
   avatar: string | null;
 }
+
+const userStatusOptions = [
+  { value: 'active', label: 'Hoạt động' },
+  { value: 'blocked', label: 'Đã bị khóa' },
+]
 
 const userTypeOptions = [
   { value: 'admin', label: 'Quản trị viên' },
@@ -46,14 +50,11 @@ const UserManagement: React.FC = () => {
   const [uploadLoading, setUploadLoading] = useState<boolean>(false);
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
 
-  // Debounced search function
-  const debouncedSearch = useCallback(
-    debounce((value: string) => {
-      setSearchText(value);
-      // fetchUsers(true);
-    }, 500),
-    []
-  );
+  // Edit role modal states
+  const [isEditRoleModalOpen, setIsEditRoleModalOpen] = useState<boolean>(false);
+  const [editRoleLoading, setEditRoleLoading] = useState<boolean>(false);
+  const [currentEditUser, setCurrentEditUser] = useState<{ id: string, username: string, role: string } | null>(null);
+  const [editRoleForm] = Form.useForm();
 
   // Function to fetch users from API
   const fetchUsers = async (resetPage = false) => {
@@ -99,7 +100,7 @@ const UserManagement: React.FC = () => {
           email: user.email,
           role: user.role,
           type: getTypeLabel(user.role),
-          lastLogin: formatDate(user.updated_at),
+          last_login: formatDate(user.last_login),
           avatar: user.avatar,
         }));
         
@@ -263,6 +264,55 @@ const UserManagement: React.FC = () => {
     }
   };
 
+  // Handle edit role button click
+  const handleEditRole = (user: UserTableType) => {
+    setCurrentEditUser({
+      id: user.key,
+      username: user.username,
+      role: user.role
+    });
+    editRoleForm.setFieldsValue({
+      role: user.role
+    });
+    setIsEditRoleModalOpen(true);
+  };
+  
+  // Handle edit role modal cancel
+  const handleEditRoleCancel = () => {
+    setIsEditRoleModalOpen(false);
+    setCurrentEditUser(null);
+    editRoleForm.resetFields();
+  };
+  
+  // Handle edit role form submission
+  const handleEditRoleSubmit = async () => {
+    if (!currentEditUser) return;
+    
+    try {
+      const values = await editRoleForm.validateFields();
+      setEditRoleLoading(true);
+      
+      await updateUserRole(currentEditUser.id, values.role);
+      message.success('Cập nhật loại tài khoản thành công');
+      
+      // Close modal and refresh data
+      setIsEditRoleModalOpen(false);
+      fetchUsers();
+    } catch (error: any) {
+      console.error('Error updating user role:', error);
+      
+      if (error.response && error.response.data) {
+        message.error(error.response.data.message || 'Cập nhật loại tài khoản thất bại');
+      } else if (error.message) {
+        message.error(error.message);
+      } else {
+        message.error('Cập nhật loại tài khoản thất bại');
+      }
+    } finally {
+      setEditRoleLoading(false);
+    }
+  };
+
   // Table columns
   const columns: TableProps<UserTableType>['columns'] = [
     {
@@ -303,20 +353,48 @@ const UserManagement: React.FC = () => {
     },
     {
       title: 'Lần cuối đăng nhập',
-      dataIndex: 'lastLogin',
-      key: 'lastLogin',
-      sorter: (a, b) => a.lastLogin.localeCompare(b.lastLogin),
+      dataIndex: 'last_login',
+      key: 'last_login',
+      sorter: (a, b) => {
+        // Handle null values in sorting
+        if (!a.last_login && !b.last_login) return 0;
+        if (!a.last_login) return -1;
+        if (!b.last_login) return 1;
+        return a.last_login.localeCompare(b.last_login);
+      },
+      render: (last_login) => {
+        // Check if last_login is null, empty, or contains the default timestamp (01/01/1970)
+        if (!last_login || last_login.includes('01/01/1970')) {
+          return 'Chưa đăng nhập';
+        }
+        return last_login;
+      },
     },
     {
       title: '',
       key: 'action',
-      render: () => (
+      render: (_, record) => (
         <Space size="middle">
-          <Tooltip title="Lock user">
-            <Button type="text" icon={<LockOutlined />} />
-          </Tooltip>
-          <Tooltip title="Edit user">
-            <Button type="text" icon={<EditOutlined />} />
+          <Popconfirm
+            title={`${record.status === 'active' ? 'Khóa' : 'Mở khóa'} tài khoản`}
+            description={`Bạn có chắc chắn muốn ${record.status === 'active' ? 'khóa' : 'mở khóa'} tài khoản của ${record.username}?`}
+            onConfirm={() => handleStatusUpdate(record)}
+            okText="Đồng ý"
+            cancelText="Hủy"
+            placement="left"
+            icon={<QuestionCircleOutlined style={{ color: record.status === 'active' ? '#ff4d4f' : '#52c41a' }} />}
+          >
+            <Button 
+              type="text" 
+              icon={record.status === 'active' ? <LockOutlined style={{ color: '#ff4d4f' }} /> : <UnlockOutlined style={{ color: '#52c41a' }} />}
+            />
+          </Popconfirm>
+          <Tooltip title="Edit role">
+            <Button 
+              type="text" 
+              icon={<EditOutlined />} 
+              onClick={() => handleEditRole(record)}
+            />
           </Tooltip>
         </Space>
       ),
@@ -328,6 +406,33 @@ const UserManagement: React.FC = () => {
     setCurrentPage(page);
     if (pageSize) setPageSize(pageSize);
     console.log('📄 UserManagement handlePageChange page:', page, 'pageSize:', pageSize);
+  };
+
+  // Add new function to handle status update directly from Popconfirm
+  const handleStatusUpdate = async (user: UserTableType) => {
+    try {
+      setLoading(true);
+      // Set new status to the opposite of current status
+      const newStatus = user.status === 'active' ? 'blocked' : 'active';
+      
+      await updateUserStatus(user.key, newStatus);
+      message.success('Cập nhật trạng thái tài khoản thành công');
+      
+      // Refresh the user list
+      fetchUsers();
+    } catch (error: any) {
+      console.error('Error updating user status:', error);
+      
+      if (error.response && error.response.data) {
+        message.error(error.response.data.message || 'Cập nhật trạng thái tài khoản thất bại');
+      } else if (error.message) {
+        message.error(error.message);
+      } else {
+        message.error('Cập nhật trạng thái tài khoản thất bại');
+      }
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -369,10 +474,7 @@ const UserManagement: React.FC = () => {
               allowClear
               onChange={handleStatusChange}
               className="w-36"
-              options={[
-                { value: 'active', label: 'Active' },
-                { value: 'inactive', label: 'Inactive' },
-              ]}
+              options={userStatusOptions}
             />
           </div>
           
@@ -418,6 +520,42 @@ const UserManagement: React.FC = () => {
           />
         </div>
       </div>
+
+      {/* Edit Role Modal */}
+      <Modal
+        title={`Cập nhật loại tài khoản: ${currentEditUser?.username || ''}`}
+        open={isEditRoleModalOpen}
+        onCancel={handleEditRoleCancel}
+        footer={[
+          <Button key="cancel" onClick={handleEditRoleCancel}>
+            Hủy
+          </Button>,
+          <Button 
+            key="submit" 
+            type="primary" 
+            onClick={handleEditRoleSubmit} 
+            loading={editRoleLoading}
+          >
+            Cập nhật
+          </Button>
+        ]}
+      >
+        <Form
+          form={editRoleForm}
+          layout="vertical"
+        >
+          <Form.Item
+            label="Loại tài khoản"
+            name="role"
+            rules={[{ required: true, message: 'Please select user type' }]}
+          >
+            <Select
+              placeholder="Chọn loại tài khoản"
+              options={userTypeOptions}
+            />
+          </Form.Item>
+        </Form>
+      </Modal>
 
       {/* Create User Drawer */}
       <Drawer

@@ -51,15 +51,22 @@ const Login: React.FC = () => {
 
       const data = await response.json();
 
-      if (data.status_code === 200) {
+      if (response.ok) {
         setAccessToken(data.data.accessToken);
-        message.success('Đăng nhập thành công');
+        message.success('Login successful');
         navigate('/');
       } else {
-        message.error('Đăng nhập thất bại');
+        // Handle specific error messages from API
+        if (data.message === 'Invalid username or password') {
+          message.error('Tài khoản hoặc mật khẩu không chính xác');
+        } else {
+          message.error(data.message || 'Đăng nhập thất bại');
+        }
+        console.log(`🔴 Login onFinish error:`, data);
       }
     } catch (error) {
-      message.error('Có lỗi xảy ra khi đăng nhập');
+      console.error(`🔴 Login onFinish exception:`, error);
+      message.error('An error occurred during login');
     } finally {
       setLoading(false);
     }
