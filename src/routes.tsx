@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { Routes, Route } from 'react-router-dom';
 import Dashboard from './pages/Dashboard';
 import { BookList, BookCategories, BookIds } from './pages/Books';
@@ -8,6 +8,14 @@ import { Sliders, Teachers, Links, Images, Testimonials } from './pages/Settings
 import BookMenu from './pages/Books/components/BookMenu/BookMenu';
 
 const AppRoutes: React.FC = () => {
+  useEffect(() => {
+    const interval = setInterval(() => {
+      document.querySelectorAll(".wrs_tickContainer").forEach(el => el.remove());
+      console.log("Đã xóa .wrs_tickContainer");
+    }, 2000); // Xóa mỗi 2 giây
+
+    return () => clearInterval(interval); // Cleanup khi component unmount
+  }, []);
   return (
     <Routes>
       <Route path="/" element={<Dashboard />} />
