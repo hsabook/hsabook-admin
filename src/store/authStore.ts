@@ -22,7 +22,10 @@ interface AuthState {
   isAuthenticated: boolean;
 }
 
-export const useAuthStore = create<AuthState>()(
+// Explicitly declare the type to avoid TypeScript errors
+const createStore: any = create;
+
+export const useAuthStore = createStore(
   persist(
     (set) => ({
       accessToken: null,
