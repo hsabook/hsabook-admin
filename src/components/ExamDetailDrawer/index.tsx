@@ -62,6 +62,7 @@ interface QuestionEntity {
   created_at: string;
   updated_at: string;
   video?: string;
+  order?: number;
 }
 
 // Define interfaces for exam detail
@@ -582,6 +583,9 @@ const ExamDetailDrawer: React.FC<ExamDetailDrawerProps> = ({
     }
   };
 
+  const sortedExamsQuestion = selectedExamDetail?.exams_question?.sort((a, b) => (a.question.order || 0) - (b.question.order || 0))
+
+  console.log("🔍 Sorted exams question:", sortedExamsQuestion);
   return (
     <>
       <Drawer
@@ -709,7 +713,7 @@ const ExamDetailDrawer: React.FC<ExamDetailDrawerProps> = ({
               {selectedExamDetail.exams_question &&
               selectedExamDetail.exams_question.length > 0 ? (
                 <Table
-                  dataSource={selectedExamDetail.exams_question}
+                  dataSource={selectedExamDetail.exams_question.sort((a, b) => (a.question.order || 0) - (b.question.order || 0))}
                   rowKey="id"
                   pagination={false}
                   className="mt-4"

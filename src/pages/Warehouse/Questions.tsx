@@ -1,12 +1,13 @@
 import React, { useState, useEffect } from 'react';
-import { Card, Button, Table, Space, Tag, message, Spin, Switch, Input, Modal, Select, Row, Col, Divider, Tooltip, Badge, Tabs } from 'antd';
-import { PlusOutlined, EditOutlined, DeleteOutlined, CopyOutlined, SearchOutlined, ExclamationCircleOutlined, ReloadOutlined, InfoCircleOutlined } from '@ant-design/icons';
+import { Card, Button, Table, Space, Tag, message, Spin, Switch, Input, Modal, Select, Row, Col, Divider, Tooltip, Badge, Tabs, Upload } from 'antd';
+import { PlusOutlined, EditOutlined, DeleteOutlined, CopyOutlined, SearchOutlined, ExclamationCircleOutlined, ReloadOutlined, InfoCircleOutlined, UploadOutlined } from '@ant-design/icons';
 import QuestionModal from '../../components/QuestionModal';
 import VideoDisplay from '../../components/VideoDisplay';
 import { getQuestions, deleteQuestion, createQuestion, updateQuestion } from '../../api/questions';
 import type { Question } from '../../api/questions/types';
 import { HighSchoolSubjects, QUESTION_TYPE } from '../../components/QuestionModal/QuestionModal';
 import { api } from '../../utils/api';
+import { uploadVideoByExcel, validateExcelFile } from '../../api/upload/videoService';
 
 const { confirm } = Modal;
 
@@ -16,10 +17,10 @@ const Questions: React.FC = () => {
   const [questions, setQuestions] = useState<Question[]>([]);
   const [loading, setLoading] = useState(false);
   const [_, setSubmitting] = useState(false);
-  const [searchText, setSearchText] = useState<string | undefined>(undefined);
-  const [selectedSubject, setSelectedSubject] = useState<string | undefined>(undefined);
-  const [selectedType, setSelectedType] = useState<string | undefined>(undefined);
-  const [selectedStatus, setSelectedStatus] = useState<string | undefined>(undefined);
+  const [searchText, setSearchText] = useState<string | undefined | any>(undefined);
+  const [selectedSubject, setSelectedSubject] = useState<string | undefined | any>(undefined);
+  const [selectedType, setSelectedType] = useState<string | undefined | any>(undefined);
+  const [selectedStatus, setSelectedStatus] = useState<string | undefined | any>(undefined);
   const [lastFetchTime, setLastFetchTime] = useState<Date>(new Date());
   const [pagination, setPagination] = useState({
     current: 1,
@@ -28,6 +29,10 @@ const Questions: React.FC = () => {
   });
   const [viewingQuestion, setViewingQuestion] = useState<any>(null);
   const [isViewModalOpen, setIsViewModalOpen] = useState(false);
+  const [uploadLoading, setUploadLoading] = useState(false);
+  const [uploadModalVisible, setUploadModalVisible] = useState(false);
+  const [uploadResult, setUploadResult] = useState<any>(null);
+  const [codeFilter, setCodeFilter] = useState('');
 
   const fetchQuestions = async (page = 1, pageSize = 10, _params: any = {
     code_id: undefined,
@@ -35,6 +40,11 @@ const Questions: React.FC = () => {
     type: undefined,
     status: undefined
   }) => {
+    console.log('====> ', {
+      page,
+      pageSize,
+      _params
+    })
     try {
       setLoading(true);
       const params: any = {
@@ -42,23 +52,24 @@ const Questions: React.FC = () => {
         page: page
       };
 
-      if (selectedSubject) {
+      if (_params?.subject || selectedSubject) {
         params.subject = _params.subject || selectedSubject;
       }
 
-      if (selectedType) {
+      if (_params?.type || selectedType) {
         params.type = _params.type || selectedType;
       }
 
-      if (selectedStatus) {
-        params.status = _params.status || selectedStatus;
+      if (_params?.status|| selectedStatus) {
+        params.status = _params?.status || selectedStatus;
       }
 
-      if (searchText) {
-        params.code_id = _params.code_id || searchText;
+      if (_params?.code_id) {
+        params.code_id = _params?.code_id;
       }
 
       const response = await getQuestions(params);
+      console.log("🔍 Response:", response.data.data?.length);
       setQuestions(response.data.data);
       setPagination({
         current: response.data.pagination.current_page,
@@ -113,7 +124,7 @@ const Questions: React.FC = () => {
     });
   };
 
-  const handleSearch = (value: string) => {
+  const handleSearch = (value: string = '') => {
     setSearchText(value);
     fetchQuestions(1, pagination.pageSize, { code_id: value });
   };
@@ -124,6 +135,86 @@ const Questions: React.FC = () => {
     setSelectedType(undefined);
     setSelectedStatus(undefined);
     fetchQuestions(1, pagination.pageSize);
+  };
+
+  const handleUploadExcel = async (file: File) => {
+    const error = validateExcelFile(file);
+    if (error) {
+      message.error(error);
+      return false;
+    }
+
+    setUploadLoading(true);
+    setUploadResult(null);
+    try {
+      const result = await uploadVideoByExcel(file);
+      console.log('API response:', result); // Log để debug
+      
+      // Cấu trúc dữ liệu API trả về có thể có nhiều dạng khác nhau
+      // Dạng 1: { messages, data: { total, success,...}, status_code }
+      // Dạng 2: { total, success, failed, skipped, details: [...] }
+      
+      // Xác định responseData dựa trên cấu trúc thực tế
+      // Nếu result.data tồn tại và chứa total, success thì đó là dạng 1
+      // Nếu result trực tiếp chứa total, success thì đó là dạng 2
+      const responseData = 
+        (result.data && (typeof result.data.total === 'number' || typeof result.data.success === 'number'))
+          ? result.data
+          : (typeof result.total === 'number' || typeof result.success === 'number')
+            ? result
+            : {};
+      
+      console.log('Extracted response data:', responseData);
+      
+      // Lấy mảng details
+      const details = responseData.details || [];
+      
+      // Tính toán các mã thành công và thất bại
+      const successCodes = details
+        .filter((item: any) => item.status === "SUCCESS")
+        .map((item: any) => item.code_id);
+      
+      const failedCodes = details
+        .filter((item: any) => item.status !== "SUCCESS")
+        .map((item: any) => item.code_id);
+      
+      console.log('Success codes:', successCodes);
+      console.log('Failed codes:', failedCodes);
+      
+      // Chuẩn bị dữ liệu để hiển thị
+      const resultData = {
+        total: responseData.total || 0,
+        success: responseData.success || 0,
+        failed: responseData.failed || 0,
+        skipped: responseData.skipped || 0,
+        successCodes,
+        failedCodes
+      };
+      
+      console.log('Final result data:', resultData);
+      
+      setUploadResult({ 
+        success: true, 
+        data: resultData,
+        message: result.messages || 'Success'
+      });
+      
+      message.success(`Upload thành công! Đã cập nhật ${resultData.success}/${resultData.total} mã.`);
+      
+      // Tự động làm mới danh sách câu hỏi sau khi upload thành công
+      if (successCodes.length > 0) {
+        fetchQuestions(pagination.current, pagination.pageSize);
+      }
+      
+    } catch (error: any) {
+      console.error('Error uploading Excel file:', error);
+      const errorMessage = error.response?.data?.message || 'Không thể upload file Excel';
+      setUploadResult({ success: false, error: errorMessage });
+      message.error(errorMessage);
+    } finally {
+      setUploadLoading(false);
+    }
+    return false;
   };
 
   const columns = [
@@ -315,17 +406,29 @@ const Questions: React.FC = () => {
               className="ml-2"
             />
           </div>
-          <Tooltip title="Thêm câu hỏi mới">
-            <Button
-              type="primary"
-              icon={<PlusOutlined />}
-              onClick={handleAddQuestion}
-              className="bg-[#45b630] hover:bg-[#3a9c29] transition-colors duration-300"
-              size="middle"
-            >
-              Thêm câu hỏi
-            </Button>
-          </Tooltip>
+          <div className="flex gap-2">
+            <Tooltip title="Upload video bằng file xlsx">
+              <Button
+                icon={<UploadOutlined />}
+                onClick={() => setUploadModalVisible(true)}
+                className="border-[#45b630] hover:border-[#3a9c29] text-[#45b630] hover:text-[#3a9c29] transition-colors duration-300"
+                size="middle"
+              >
+                Upload Video
+              </Button>
+            </Tooltip>
+            <Tooltip title="Thêm câu hỏi mới">
+              <Button
+                type="primary"
+                icon={<PlusOutlined />}
+                onClick={handleAddQuestion}
+                className="bg-[#45b630] hover:bg-[#3a9c29] transition-colors duration-300"
+                size="middle"
+              >
+                Thêm câu hỏi
+              </Button>
+            </Tooltip>
+          </div>
         </div>
 
         <Divider className="my-3" />
@@ -339,6 +442,10 @@ const Questions: React.FC = () => {
               prefix={<SearchOutlined className="text-gray-400" />}
               className="w-full border-[#45b630] border hover:border-[#3a9c29] transition-colors duration-300"
               allowClear
+              // onClear={() => {
+                // fetchQuestions(pagination.current, pagination.pageSize);
+                // setSearchText('');
+              // }}
               suffix={
                 <Tooltip title="Nhập mã CODE của câu hỏi">
                   <InfoCircleOutlined className="text-gray-400" />
@@ -623,6 +730,229 @@ const Questions: React.FC = () => {
             />
           </div>
         )}
+      </Modal>
+
+      <Modal
+        title={
+          <div className="flex items-center">
+            <UploadOutlined className="text-blue-500 mr-2" />
+            <span>Upload Video Bằng File Excel</span>
+          </div>
+        }
+        open={uploadModalVisible}
+        onCancel={() => {
+          setUploadModalVisible(false);
+          setUploadResult(null);
+          setCodeFilter('');
+        }}
+        footer={[
+          <Button 
+            key="close" 
+            onClick={() => {
+              setUploadModalVisible(false);
+              setUploadResult(null);
+              setCodeFilter('');
+            }}
+          >
+            Đóng
+          </Button>
+        ]}
+        width={600}
+      >
+        <div className="py-4">
+          {!uploadResult && (
+            <>
+              <Upload.Dragger
+                name="file"
+                accept=".xlsx"
+                beforeUpload={handleUploadExcel}
+                showUploadList={false}
+                disabled={uploadLoading}
+              >
+                <p className="ant-upload-drag-icon">
+                  <UploadOutlined style={{ fontSize: 32, color: '#45b630' }} />
+                </p>
+                <p className="ant-upload-text">Nhấp hoặc kéo thả file Excel vào khu vực này</p>
+                <p className="ant-upload-hint text-gray-500">
+                  Chỉ hỗ trợ file Excel (.xlsx) có định dạng đúng. Kích thước tối đa: 10MB
+                </p>
+              </Upload.Dragger>
+              
+              <div className="mt-4 text-center">
+                <Button 
+                  type="link"
+                  onClick={() => {
+                    // Tải xuống file mẫu (làm giả bằng cách mở URL hoặc tải từ server)
+                    // message.info('Đang tải file mẫu...');
+                    window.open('https://s3-website-r1.s3cloud.vn/hsa/2025-04-08/1744066245663.xlsx', '_blank');
+                  }}
+                >
+                  Tải xuống file mẫu Excel
+                </Button>
+              </div>
+            </>
+          )}
+
+          {uploadLoading && (
+            <div className="text-center mt-4">
+              <Spin tip="Đang upload..." />
+            </div>
+          )}
+
+          {uploadResult && uploadResult.success && (
+            <div className="mt-4 p-4 bg-green-50 rounded border border-green-200">
+              <h3 className="text-green-600 font-medium mb-2">Upload thành công!</h3>
+              <p className="text-gray-700 mb-2">
+                Các video đã được cập nhật vào hệ thống.
+              </p>
+              
+              <div className="text-gray-500 text-xs mb-3">
+                Thời gian: {new Date().toLocaleString('vi-VN')}
+              </div>
+
+              <div className="grid grid-cols-2 gap-2 mb-3">
+                <div className="bg-white p-2 rounded border border-gray-100">
+                  <span className="text-sm font-medium">Tổng số mã:</span>
+                  <span className="float-right font-bold">{uploadResult.data?.total || 0}</span>
+                </div>
+                <div className="bg-white p-2 rounded border border-green-100">
+                  <span className="text-sm font-medium">Thành công:</span>
+                  <span className="float-right font-bold text-green-600">{uploadResult.data?.success || 0}</span>
+                </div>
+                <div className="bg-white p-2 rounded border border-red-100">
+                  <span className="text-sm font-medium">Thất bại:</span>
+                  <span className="float-right font-bold text-red-600">{uploadResult.data?.failed || 0}</span>
+                </div>
+                <div className="bg-white p-2 rounded border border-yellow-100">
+                  <span className="text-sm font-medium">Bỏ qua:</span>
+                  <span className="float-right font-bold text-yellow-600">{uploadResult.data?.skipped || 0}</span>
+                </div>
+              </div>
+              
+              {uploadResult.data?.successCodes && uploadResult.data.successCodes.length > 0 ? (
+                <div className="mt-3">
+                  <p className="font-medium text-sm text-gray-700">
+                    Các mã đã cập nhật thành công ({uploadResult.data.successCodes.length}):
+                  </p>
+                  
+                  <div className="flex justify-between items-center mb-2">
+                    <Input
+                      placeholder="Tìm kiếm mã..."
+                      value={codeFilter}
+                      onChange={(e) => setCodeFilter(e.target.value)}
+                      className="mr-2"
+                      prefix={<SearchOutlined className="text-gray-400" />}
+                      allowClear
+                    />
+                    
+                    <Button
+                      size="small"
+                      icon={<CopyOutlined />}
+                      onClick={() => {
+                        const textToCopy = uploadResult.data.successCodes.join(', ');
+                        navigator.clipboard.writeText(textToCopy);
+                        message.success('Đã sao chép tất cả mã');
+                      }}
+                      className="flex-shrink-0"
+                      disabled={uploadResult.data.successCodes.length === 0}
+                    >
+                      Sao chép
+                    </Button>
+                  </div>
+                  
+                  <div className="mt-2 max-h-40 overflow-y-auto bg-white p-2 rounded border border-green-100">
+                    {uploadResult.data.successCodes
+                      .filter((code: string) => code.toLowerCase().includes(codeFilter.toLowerCase()))
+                      .map((code: string, index: number) => (
+                        <Tag 
+                          key={index} 
+                          className="mb-1 mr-1 px-2 py-1 bg-green-50 text-green-800 border-green-200"
+                        >
+                          {code}
+                        </Tag>
+                      ))}
+                  </div>
+                </div>
+              ) : (
+                <p className="text-gray-500 italic text-sm mt-2">
+                  Không có mã nào được cập nhật thành công.
+                </p>
+              )}
+              
+              {uploadResult.data?.failedCodes && uploadResult.data.failedCodes.length > 0 && (
+                <div className="mt-3">
+                  <p className="font-medium text-sm text-red-700">
+                    Các mã thất bại ({uploadResult.data.failedCodes.length}):
+                  </p>
+                  
+                  <div className="mt-2 max-h-32 overflow-y-auto bg-white p-2 rounded border border-red-100">
+                    {uploadResult.data.failedCodes
+                      .filter((code: string) => code.toLowerCase().includes(codeFilter.toLowerCase()))
+                      .map((code: string, index: number) => (
+                        <Tag 
+                          key={index} 
+                          className="mb-1 mr-1 px-2 py-1 bg-red-50 text-red-800 border-red-200"
+                        >
+                          {code}
+                        </Tag>
+                      ))}
+                  </div>
+                </div>
+              )}
+              
+              <div className="mt-3 flex justify-between">
+                <Button 
+                  onClick={() => {
+                    setUploadResult(null);
+                    setCodeFilter('');
+                  }}
+                >
+                  Upload lại
+                </Button>
+                
+                <Button 
+                  type="primary" 
+                  onClick={() => fetchQuestions(pagination.current, pagination.pageSize)}
+                  className="bg-green-500 hover:bg-green-600"
+                >
+                  Làm mới danh sách
+                </Button>
+              </div>
+            </div>
+          )}
+
+          {uploadResult && !uploadResult.success && (
+            <div className="mt-4 p-4 bg-red-50 rounded border border-red-200">
+              <h3 className="text-red-600 font-medium mb-2">Upload thất bại!</h3>
+              <p className="text-gray-700">
+                {uploadResult.error}
+              </p>
+              <p className="text-gray-500 mt-2 text-sm">
+                Vui lòng kiểm tra lại file Excel và thử lại. Hãy đảm bảo file Excel có đúng định dạng yêu cầu.
+              </p>
+              
+              <div className="mt-3 flex justify-between">
+                <Button 
+                  onClick={() => {
+                    setUploadResult(null);
+                    setCodeFilter('');
+                  }}
+                >
+                  Thử lại
+                </Button>
+                
+                <Button 
+                  type="link"
+                  onClick={() => {
+                    window.open('https://s3-website-r1.s3cloud.vn/hsa/2025-04-08/1744066245663.xlsx', '_blank');
+                  }}
+                >
+                  Tải xuống file mẫu
+                </Button>
+              </div>
+            </div>
+          )}
+        </div>
       </Modal>
     </div>
   );
