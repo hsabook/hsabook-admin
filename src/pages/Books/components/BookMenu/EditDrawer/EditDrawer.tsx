@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Drawer, Form, Input, Switch, Button, Space, Alert, Upload, message, Card, List, Tag, Typography, Divider, Badge } from 'antd';
+import { Drawer, Form, Input, Switch, Button, Space, Alert, Upload, message, Card, List, Tag, Typography, Divider, Badge, Modal } from 'antd';
 import type { UploadFile } from 'antd/es/upload/interface';
 import { UploadOutlined, YoutubeOutlined, PlusOutlined, DeleteOutlined, FileOutlined, InboxOutlined, DatabaseOutlined, EyeOutlined, ImportOutlined } from '@ant-design/icons';
 import { uploadFile } from '../../../../../api/upload';
@@ -361,73 +361,58 @@ const EditDrawer: React.FC<EditDrawerProps> = ({
 
   // Handle removing video
   const handleRemoveVideo = () => {
-    setVideoType(null);
-    setVideoFileList([]);
-    setVideoUrl('');
-    setEmbedCode('');
-    form.setFieldsValue({ video: '', embedVideo: '' });
-    setHasVideo(false);
-  };
-
-  // Handle exam file upload
-  const handleExamFileChange = async (info: any) => {
-    const { file, fileList: newFileList } = info;
-    
-    // Handle file removal
-    if (newFileList.length === 0) {
-      setExamFileList([]);
-      form.setFieldsValue({ file_upload: '' });
-      setHasExamFile(false);
-      return;
-    }
-
-    // Handle file upload
-    setExamFileList(newFileList);
-    
-    if (file.status === 'uploading') {
-      console.log("📤 Đang tải lên file bộ đề:", file);
-    }
-    
-    if (file.status === 'done') {
-      // If file has originFileObj, it's a new file that needs to be uploaded
-      if (file.originFileObj) {
-        try {
-          console.log("📤 Đang tải lên file bộ đề:", file.name);
-          const fileUrl = await uploadFile(file.originFileObj);
-          console.log("✅ Tải lên file bộ đề thành công:", fileUrl);
-          
-          // Update file in the list
-          const uploadedFile = {
-            uid: file.uid,
-            name: file.name,
-            status: 'done' as const,
-            url: fileUrl,
-          };
-          
-          setExamFileList([uploadedFile]);
-          setHasExamFile(true);
-          
-          // Update form value
-          form.setFieldsValue({ file_upload: fileUrl });
-          message.success('Tải lên file bộ đề thành công');
-        } catch (error) {
-          console.error('❌ Lỗi tải lên:', error);
-          message.error('Tải lên file bộ đề thất bại');
-          setExamFileList([]);
-          form.setFieldsValue({ file_upload: '' });
-        }
-      } else if (file.url) {
-        // File already has URL
-        setHasExamFile(true);
+    // Hiển thị thông báo xác nhận
+    Modal.confirm({
+      title: 'Xác nhận xóa video',
+      content: 'Bạn có chắc chắn muốn xóa video này không?',
+      okText: 'Xóa',
+      okType: 'danger',
+      cancelText: 'Hủy',
+      onOk: () => {
+        // Xóa mọi dữ liệu liên quan đến video
+        setVideoType(null);
+        setVideoFileList([]);
+        setVideoUrl('');
+        setEmbedCode('');
+        form.setFieldsValue({ video: '', embedVideo: '' });
+        setHasVideo(false);
+        
+        // Thông báo xóa thành công
+        message.success('Đã xóa video thành công');
       }
-    }
+    });
   };
 
-  // Handle removing exam file
-  const handleRemoveExamFile = () => {
-    setExamFileList([]);
-    form.setFieldsValue({ file_upload: '' });
-    setHasExamFile(false);
+  // Hàm xử lý chung để xóa cả file và bộ đề
+  const handleRemoveExamAndFile = () => {
+    // Hiển thị thông báo xác nhận
+    Modal.confirm({
+      title: 'Xác nhận xóa',
+      content: 'Bạn có chắc chắn muốn xóa file đính kèm và bộ đề liên quan không?',
+      okText: 'Xóa',
+      okType: 'danger',
+      cancelText: 'Hủy',
+      onOk: () => {
+        // Xóa mọi dữ liệu liên quan đến file
+        setExamDocUrl('');
+        setExamDocFileName('');
+        setExamFileList([]);
+        setHasExamFile(false);
+        
+        // Xóa mọi dữ liệu liên quan đến bộ đề
+        setSelectedExams([]);
+        
+        // Cập nhật form
+        form.setFieldsValue({ 
+          file_upload: '',
+          exam_url_doc: '',
+          exam_id: ''
+        });
+        
+        // Thông báo xóa thành công
+        message.success('Đã xóa file đính kèm và bộ đề thành công');
+      }
+    });
   };
 
   // Handle doc file upload
@@ -499,21 +484,6 @@ const EditDrawer: React.FC<EditDrawerProps> = ({
     return false;
   };
   
-  // Handle removing doc file
-  const handleRemoveDocFile = () => {
-    setExamDocUrl('');
-    setExamDocFileName('');
-    form.setFieldsValue({ 
-      file_upload: '',
-      exam_url_doc: '',
-    });
-    
-    // If this is a new upload (no exam id yet), clear the selected exams
-    if (!menuBook?.exam?.id) {
-      setSelectedExams([]);
-    }
-  };
-  
   // Handle selecting exams from repository
   const handleSelectExams = (exams: any[]) => {
     if (exams && exams.length > 0) {
@@ -534,16 +504,64 @@ const EditDrawer: React.FC<EditDrawerProps> = ({
     setIsExamDetailVisible(true);
   };
   
-  // Handle removing selected exam
-  const handleRemoveSelectedExam = () => {
-    setSelectedExams([]);
-    form.setFieldsValue({ exam_id: '' });
-  };
-  
   // Handle closing exam detail drawer
   const handleCloseExamDetail = () => {
     setIsExamDetailVisible(false);
     setSelectedExamId(null);
+  };
+  
+  // Handle exam file upload
+  const handleExamFileChange = async (info: any) => {
+    const { file, fileList: newFileList } = info;
+    
+    // Handle file removal
+    if (newFileList.length === 0) {
+      setExamFileList([]);
+      form.setFieldsValue({ file_upload: '' });
+      setHasExamFile(false);
+      return;
+    }
+
+    // Handle file upload
+    setExamFileList(newFileList);
+    
+    if (file.status === 'uploading') {
+      console.log("📤 Đang tải lên file bộ đề:", file);
+    }
+    
+    if (file.status === 'done') {
+      // If file has originFileObj, it's a new file that needs to be uploaded
+      if (file.originFileObj) {
+        try {
+          console.log("📤 Đang tải lên file bộ đề:", file.name);
+          const fileUrl = await uploadFile(file.originFileObj);
+          console.log("✅ Tải lên file bộ đề thành công:", fileUrl);
+          
+          // Update file in the list
+          const uploadedFile = {
+            uid: file.uid,
+            name: file.name,
+            status: 'done' as const,
+            url: fileUrl,
+          };
+          
+          setExamFileList([uploadedFile]);
+          setHasExamFile(true);
+          
+          // Update form value
+          form.setFieldsValue({ file_upload: fileUrl });
+          message.success('Tải lên file bộ đề thành công');
+        } catch (error) {
+          console.error('❌ Lỗi tải lên:', error);
+          message.error('Tải lên file bộ đề thất bại');
+          setExamFileList([]);
+          form.setFieldsValue({ file_upload: '' });
+        }
+      } else if (file.url) {
+        // File already has URL
+        setHasExamFile(true);
+      }
+    }
   };
 
   // Handle form submission
@@ -928,6 +946,7 @@ const EditDrawer: React.FC<EditDrawerProps> = ({
               </div>
             )}
 
+            {/* Hiển thị video dạng embed */}
             {videoType === 'embed' && (
               <div className="mt-4 p-4 bg-gray-50 rounded-lg">
                 <Form.Item name="embedVideo" className="mb-1">
@@ -942,7 +961,7 @@ const EditDrawer: React.FC<EditDrawerProps> = ({
                   Ví dụ: <code>&lt;iframe src="https://www.youtube.com/embed/..."&gt;&lt;/iframe&gt;</code>
                 </div>
 
-                {embedCode && (
+                {embedCode && !hasVideo && (
                   <div className="mt-4">
                     <div className="flex justify-between items-center mb-2">
                       <h4 className="text-sm font-medium">Xem trước video:</h4>
@@ -975,7 +994,7 @@ const EditDrawer: React.FC<EditDrawerProps> = ({
               </div>
             )}
 
-            {/* Hiển thị video dạng embed hiện tại */}
+            {/* Hiển thị video hiện tại */}
             {hasVideo && videoType === 'embed' && embedCode && (
               <div className="mt-4 p-4 bg-gray-50 rounded-lg">
                 <div className="flex justify-between items-center mb-2">
@@ -1008,10 +1027,10 @@ const EditDrawer: React.FC<EditDrawerProps> = ({
             )}
 
             {/* Hiển thị video dạng URL hiện tại */}
-            {/* {hasVideo && videoType === 'upload' && videoUrl && (
+            {hasVideo && videoType === 'upload' && videoUrl && (
               <div className="mt-4 p-4 bg-gray-50 rounded-lg">
                 <div className="flex justify-between items-center mb-2">
-                  <h4 className="text-sm font-medium">Video URL hiện tại:</h4>
+                  <h4 className="text-sm font-medium">Video hiện tại:</h4>
                   <Button 
                     type="primary" 
                     danger 
@@ -1030,7 +1049,7 @@ const EditDrawer: React.FC<EditDrawerProps> = ({
                   />
                 </div>
               </div>
-            )} */}
+            )}
           </div>
 
           {/* Phần đính kèm bộ đề */}
@@ -1084,7 +1103,7 @@ const EditDrawer: React.FC<EditDrawerProps> = ({
                       type="text" 
                       icon={<DeleteOutlined />} 
                       danger
-                      onClick={handleRemoveDocFile}
+                      onClick={handleRemoveExamAndFile}
                     >
                       Xóa
                     </Button>
@@ -1139,12 +1158,12 @@ const EditDrawer: React.FC<EditDrawerProps> = ({
               </div>
               <div>
                 {selectedExams[0].total_question || 0} câu
-                {selectedExams[0].status_upload && (
+                {selectedExams[0].status_exam && (
                   <Tag 
                     className="ml-2" 
-                    color={selectedExams[0].status_upload === 'done' ? 'success' : 'warning'}
+                    color={selectedExams[0].status_exam === 'success' ? 'success' : 'warning'}
                   >
-                    {selectedExams[0].status_upload === 'done' ? 'Đã xử lý' : 'Đang xử lý'}
+                    {selectedExams[0].status_exam === 'success' ? 'Đã xử lý' : 'Đang xử lý'}
                   </Tag>
                 )}
               </div>
@@ -1163,7 +1182,7 @@ const EditDrawer: React.FC<EditDrawerProps> = ({
                     icon={<DeleteOutlined />} 
                     size="small"
                     className="text-red-500 hover:text-red-700"
-                    onClick={handleRemoveSelectedExam}
+                    onClick={handleRemoveExamAndFile}
                     title="Xóa bộ đề đã chọn"
                   />
                 </div>
